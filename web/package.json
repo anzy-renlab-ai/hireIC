@@ -1,0 +1,9 @@
+{
+  "name": "hireic-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "hireIC landing page — static, single-file. Build step generates data.json from sibling jobs/ and candidates/ directories.",
+  "scripts": {
+    "build": "node build-data.mjs"
+  }
+}

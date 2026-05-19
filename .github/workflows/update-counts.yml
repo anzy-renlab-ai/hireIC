@@ -1,4 +1,4 @@
-name: Update README Counts
+name: Update README Counts + web/data.json
 
 on:
   push:
@@ -18,10 +18,10 @@ concurrency:
 
 jobs:
   update:
-    # Skip if the push was the bot's own README commit (avoids loop).
+    # Skip if the push was the bot's own commit (avoids loop).
     if: >-
       github.event.head_commit.author.email != 'bot@hireic.dev' ||
-      !startsWith(github.event.head_commit.message, 'chore: update README counts')
+      !startsWith(github.event.head_commit.message, 'chore: update counts')
     runs-on: ubuntu-latest
 
     steps:
@@ -47,15 +47,28 @@ jobs:
           npx tsx scripts/update-counts-runner.ts
           code=$?
           set -e
-          echo "exit_code=$code" >> $GITHUB_OUTPUT
+          echo "readme_exit=$code" >> $GITHUB_OUTPUT
           # 0 = changed, 1 = no change, 2 = malformed (fail loud).
           if [ "$code" = "2" ]; then exit 2; fi
 
-      - name: Commit + push README update
-        if: steps.recount.outputs.exit_code == '0'
+      - name: Regenerate web/data.json
+        id: webdata
+        run: |
+          node web/build-data.mjs
+          # Set output to indicate whether file changed.
+          if git diff --quiet -- web/data.json; then
+            echo "data_changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "data_changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit + push if anything changed
+        if: steps.recount.outputs.readme_exit == '0' || steps.webdata.outputs.data_changed == 'true'
         run: |
           git config user.name "hireic-bot"
           git config user.email "bot@hireic.dev"
-          git add README.md
-          git commit -m "chore: update README counts"
+          # Stage whichever of the two actually changed.
+          git add -- README.md web/data.json
+          git diff --cached --quiet && { echo "Nothing staged."; exit 0; }
+          git commit -m "chore: update counts (README + web/data.json)"
           git push origin main
