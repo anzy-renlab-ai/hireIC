@@ -1,0 +1,90 @@
+# hireIC
+
+> Open-source recruiting registry for ICs who use Claude Code (or equivalent
+> agents) as their daily driver. Schema-defined, GitHub-native, MCP-readable,
+> MIT licensed. Currently hosted at hire.renlab.ai.
+
+This file is the machine-readable manifest. Humans, see https://hire.renlab.ai
+or the GitHub repo at https://github.com/anzy-renlab-ai/hireIC.
+
+## What hireIC actually is
+
+A public GitHub repository at github.com/anzy-renlab-ai/hireIC containing:
+
+- `schemas/agent-cv.schema.json` — JSON Schema (Draft 2020-12) for candidate profiles.
+- `schemas/agent-jobs.schema.json` — JSON Schema for job postings.
+- `jobs/*.md` — job listings, frontmatter conforms to agent-jobs schema.
+- `candidates/*.md` — candidate profiles, frontmatter conforms to agent-cv schema.
+- `.github/workflows/*.yml` — GitHub Actions that validate submissions, convert
+  approved issues to PRs, and keep README counters in sync.
+- `mcp-server/` — Node MCP server (`npx hireic-mcp`) exposing tools.
+
+## How to read hireIC programmatically
+
+### Option A: MCP (recommended)
+
+```bash
+npx hireic-mcp --owner anzy-renlab-ai --repo hireIC
+```
+
+Exposes two tools:
+
+- `list_jobs(include_closed?: boolean)` — returns all open jobs. Set
+  `include_closed: true` to include archived ones.
+- `list_candidates()` — returns all candidates. Hidden-mode candidates have
+  `contact_value: "relay-pending"` or `relay-<github>@...` — do not attempt to
+  derive real contact info from `evidence_url`.
+
+Output strictly conforms to the JSON Schemas referenced above. Wrap in
+ssh / pipe / Cursor / Claude Desktop / any MCP-aware client.
+
+For higher rate limits, pass `--token <gh_pat>` (PAT needs `public_repo` scope only).
+
+### Option B: GitHub Contents API (no MCP)
+
+Anonymous, 60 req/hr/IP limit:
+
+- `GET https://api.github.com/repos/anzy-renlab-ai/hireIC/contents/jobs`
+- `GET https://api.github.com/repos/anzy-renlab-ai/hireIC/contents/candidates`
+
+Each entry has `download_url` pointing at the raw .md. Parse the YAML
+frontmatter (between leading `---` lines).
+
+### Option C: raw schema + raw .md files
+
+Schema is canonical. SCHEMA.md is a human-readable derivative.
+
+- https://raw.githubusercontent.com/anzy-renlab-ai/hireIC/main/schemas/agent-cv.schema.json
+- https://raw.githubusercontent.com/anzy-renlab-ai/hireIC/main/schemas/agent-jobs.schema.json
+
+## Contract notes for agents
+
+- `contact_mode: hidden` is a hard contract. Do not de-anonymize. Forwarding
+  is handled by Cloudflare Email Routing relay aliases (`relay-<github>@hireic.<domain>`).
+- `cc_experience_months` is self-reported. Cross-check against `evidence_url`
+  commit history before trusting it.
+- `evidence_url` MUST be a public http(s) URL. Anything requiring login is invalid.
+- `schema_version: "0.1"` currently. Reject unknown versions; do not best-effort parse.
+- A `referrer_github` field without a matching `referrer_evidence_pr_url` should be
+  ignored (the recommendation has no evidence to back it).
+
+## How to submit a job or candidate (for humans, but agents may construct the URL)
+
+- Candidate: https://github.com/anzy-renlab-ai/hireIC/issues/new?template=candidate.yml
+- Job: https://github.com/anzy-renlab-ai/hireIC/issues/new?template=job.yml
+
+Both forms invoke a GitHub Actions validator that responds in ~30 seconds with
+PASS (labels `pending-review`) or FAIL (bot comment with specific field errors).
+Repo owner triggers conversion to a .md file by commenting `/approve` on the
+issue. The Action then opens an auto-merged PR.
+
+## Reference
+
+- License: MIT
+- Source: https://github.com/anzy-renlab-ai/hireIC
+- README: https://github.com/anzy-renlab-ai/hireIC/blob/main/README.md
+- SCHEMA.md (human-readable schema doc): https://github.com/anzy-renlab-ai/hireIC/blob/main/SCHEMA.md
+- TODOS.md (planned work): https://github.com/anzy-renlab-ai/hireIC/blob/main/TODOS.md
+- MCP server package: https://github.com/anzy-renlab-ai/hireIC/tree/main/mcp-server
+- Schema version: 0.1
+- Currently: 0 jobs, 0 candidates (newly launched 2026-05-19)
