@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 提问 / 讨论
+    url: https://github.com/baidu/hireIC/discussions
+    about: 不申请/不发职位, 只是想问点东西? 走 Discussions.
+  - name: 想保密联系? hidden mode 说明
+    url: https://github.com/baidu/hireIC/blob/main/SCHEMA.md#hidden-mode
+    about: 在职但想被发现 — 在 candidate 表单里选 hidden, 别用 blank issue.

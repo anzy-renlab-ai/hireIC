@@ -1,0 +1,59 @@
+name: Update README Counts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "jobs/**"
+      - "candidates/**"
+
+permissions:
+  contents: write
+
+# Serialize: multiple PRs merging in quick succession all hit main, and
+# parallel recounts would race on README. Serialize them.
+concurrency:
+  group: update-counts
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # Skip if the push was the bot's own README commit (avoids loop).
+    if: github.event.head_commit.author.email != 'bot@hireic.dev' || !startsWith(github.event.head_commit.message, 'chore: update README counts')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need a writable token so the bot can push back to main.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Recount and rewrite README
+        id: recount
+        env:
+          REPO_ROOT: ${{ github.workspace }}
+        run: |
+          set +e
+          npx tsx scripts/update-counts-runner.ts
+          code=$?
+          set -e
+          echo "exit_code=$code" >> $GITHUB_OUTPUT
+          # 0 = changed, 1 = no change, 2 = malformed (fail loud).
+          if [ "$code" = "2" ]; then exit 2; fi
+
+      - name: Commit + push README update
+        if: steps.recount.outputs.exit_code == '0'
+        run: |
+          git config user.name "hireic-bot"
+          git config user.email "bot@hireic.dev"
+          git add README.md
+          git commit -m "chore: update README counts"
+          git push origin main

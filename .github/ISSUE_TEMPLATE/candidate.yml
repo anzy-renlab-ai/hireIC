@@ -1,0 +1,148 @@
+name: 候选人申请 — Candidate Profile
+description: 我每天用 Claude Code (或同类 agent) 干活, 想被发现 / I ship with cc daily, want to be discoverable.
+title: "Candidate: <github_username>"
+labels: ["candidate", "pending-validation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 提交前请注意 (Read first)
+
+        - 这是公开 issue, **不要填手机号 / 身份证号 / 真实姓名**. 用 GitHub username + 邮箱即可.
+        - 在职大厂员工怕暴露? **`contact_mode` 选 `hidden`**, hireIC 会给你一个一次性 relay 邮箱.
+        - 提交后 1 分钟内会收到自动校验评论. 不限次数修改.
+        - 字段说明: [SCHEMA.md](https://github.com/baidu/hireIC/blob/main/SCHEMA.md)
+
+  - type: input
+    id: github_username
+    attributes:
+      label: GitHub username
+      description: 你的 GitHub 登录名 (不带 @). 必须真实存在.
+      placeholder: alicelu
+    validations:
+      required: true
+
+  - type: input
+    id: cc_experience_months
+    attributes:
+      label: cc 经验 (月数 / months)
+      description: 用 Claude Code (或同类 agent) 当日常 driver 多久了? 阿拉伯数字, 别填 "几个月".
+      placeholder: "12"
+    validations:
+      required: true
+
+  - type: input
+    id: evidence_url
+    attributes:
+      label: cc-fluency 证据 URL
+      description: |
+        一条**公开可访问**的 URL 证明你 cc 用得好. 任选其一:
+        - 一个 PR (描述里有 Co-authored-by Claude / Cursor 的 commit)
+        - 一段 gist / blog 写你的 cc workflow
+        - 一个你 cc 主导写的开源 repo
+        例: `https://github.com/alicelu/proj/pull/42`
+      placeholder: https://github.com/alicelu/proj/pull/42
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contact_mode
+    attributes:
+      label: 联系方式公开度 — Contact mode
+      description: |
+        - `public` 直接公开你的邮箱/微信/Twitter (推荐, 公开度高)
+        - `hidden` 不公开, hireIC 给你一个一次性 relay 邮箱 (在职大厂员工选这个)
+      options:
+        - public
+        - hidden
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: contact_value
+    attributes:
+      label: 联系方式 — Contact value
+      description: |
+        若 contact_mode = public: 邮箱 / 微信 ID / Twitter @handle (公开可见)
+        若 contact_mode = hidden: 填 `relay-pending`, 合并后 founder 给你 alias
+      placeholder: alice@example.com  /  @alicelu  /  relay-pending
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "---\n### 以下都是可选, 填得越多越好被发现"
+
+  - type: textarea
+    id: bio_zh
+    attributes:
+      label: 中文一句话介绍 — bio_zh (可选)
+      description: 一两句话, 别写营销词. e.g. "全栈, 主要写后端, 喜欢用 cc 把 boilerplate 干掉"
+      placeholder: ""
+
+  - type: textarea
+    id: bio_en
+    attributes:
+      label: English bio (可选)
+      placeholder: ""
+
+  - type: dropdown
+    id: looking_for
+    attributes:
+      label: 状态 — looking_for (可选)
+      options:
+        - "(不填)"
+        - full-time
+        - contract
+        - open-to-talk
+        - not-looking
+
+  - type: input
+    id: salary_range_rmb
+    attributes:
+      label: 期望薪资 (RMB, 可选)
+      description: 自由格式. e.g. "40-60k/mo" 或 "600-900k/yr"
+      placeholder: ""
+
+  - type: input
+    id: location
+    attributes:
+      label: 城市 / 远程偏好 — location (可选)
+      placeholder: 北京 / Remote-only
+
+  - type: input
+    id: referrer_github
+    attributes:
+      label: 推荐人 GitHub — referrer_github (可选, 但有加分)
+      description: 谁推荐你来的? 推荐人需要附 evidence_pr_url 才生效.
+      placeholder: bob
+
+  - type: input
+    id: referrer_evidence_pr_url
+    attributes:
+      label: 推荐人附的证据 PR
+      description: 推荐人在哪条公开 PR 看到你 cc 用得好? 必须是 URL.
+      placeholder: https://github.com/bob/proj/pull/1
+
+  - type: input
+    id: agent_stack
+    attributes:
+      label: 主用 agent stack (可选)
+      placeholder: cc + Cursor + 自建 MCP server
+
+  - type: input
+    id: available_from
+    attributes:
+      label: 可入职日期 — available_from (可选, YYYY-MM-DD)
+      placeholder: 2026-07-01
+
+  - type: checkboxes
+    id: agreements
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我同意 PR 内容将公开在 GitHub 上, 包含我的 github_username 和上面填写的字段
+          required: true
+        - label: 我没在表单里放手机号 / 身份证号 / 任何敏感 PII
+          required: true

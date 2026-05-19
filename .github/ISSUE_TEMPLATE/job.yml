@@ -1,0 +1,130 @@
+name: 发布职位 — Post a Job
+description: 我招 cc-fluent IC, 主流平台筛不出 / I am hiring ICs who use cc, mainstream platforms cannot filter for this.
+title: "Job: <company> — <role_title_zh>"
+labels: ["job", "pending-validation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 提交前请注意
+
+        - 这是公开 issue, 把可公开的信息写上.
+        - 招聘**必须**是真的需要 cc-fluent IC (即 `cc_required: true`). 把"会用 AI 工具"当加分项的职位不在这里发.
+        - 提交后 1 分钟内自动校验. 不限次数修改.
+
+  - type: input
+    id: company
+    attributes:
+      label: 公司名 — company
+      placeholder: Acme
+    validations:
+      required: true
+
+  - type: input
+    id: role_title_zh
+    attributes:
+      label: 中文职位名 — role_title_zh
+      description: 中文必填, 主受众. 英文版可选.
+      placeholder: 全栈工程师 (cc-fluent)
+    validations:
+      required: true
+
+  - type: input
+    id: role_title_en
+    attributes:
+      label: English title (可选)
+      placeholder: Fullstack engineer (cc-fluent)
+
+  - type: dropdown
+    id: cc_required
+    attributes:
+      label: cc 是必须还是加分 — cc_required
+      description: 必填 = true. 加分项 = 这个 issue 不该在 hireIC 发, 请走主流平台.
+      options:
+        - "true (必填, 接受继续填)"
+        - "false (加分, 这职位不适合 hireIC)"
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: apply_url
+    attributes:
+      label: 投递链接 — apply_url
+      description: 候选人投递的页面. 公司主页 / 招聘网站 / 直接邮件都可以, 但必须是 URL.
+      placeholder: https://acme.com/jobs/123
+    validations:
+      required: true
+
+  - type: input
+    id: contact_value
+    attributes:
+      label: 招聘方联系方式 — contact_value
+      description: 候选人遇到问题时联系谁. 邮箱 / Twitter / 微信 ID.
+      placeholder: jobs@acme.com
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "---\n### 可选字段"
+
+  - type: input
+    id: salary_range_rmb
+    attributes:
+      label: 薪资范围 (RMB, 可选)
+      placeholder: "50-80k/mo"
+
+  - type: dropdown
+    id: employment_type
+    attributes:
+      label: 雇佣类型 — employment_type (可选)
+      options:
+        - "(不填)"
+        - full-time
+        - contract
+        - internship
+        - consulting
+
+  - type: input
+    id: location
+    attributes:
+      label: 城市 — location (可选)
+      placeholder: 北京 / 上海 / Remote
+
+  - type: dropdown
+    id: remote_policy
+    attributes:
+      label: 远程政策 — remote_policy (可选)
+      options:
+        - "(不填)"
+        - onsite
+        - remote-friendly
+        - remote-only
+
+  - type: input
+    id: open_until
+    attributes:
+      label: 招聘截止日期 — open_until (可选, YYYY-MM-DD)
+      placeholder: 2026-12-31
+
+  - type: textarea
+    id: description_zh
+    attributes:
+      label: 中文 JD — description_zh (可选)
+      description: 简短点, 长 JD 放 apply_url. 这里写"这岗位为什么适合 cc-fluent IC".
+
+  - type: textarea
+    id: description_en
+    attributes:
+      label: English JD — description_en (optional)
+
+  - type: checkboxes
+    id: agreements
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我代表 `<company>` 真实招聘, 不是测试或挂羊头
+          required: true
+        - label: 我接受 hireIC 中转 / 公开列出此职位, 没有"内部专属"等约束
+          required: true

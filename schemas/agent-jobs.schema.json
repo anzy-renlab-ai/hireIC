@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hireic.dev/schemas/agent-jobs.schema.json",
+  "title": "agent-jobs",
+  "description": "A job posting that explicitly wants cc-fluent ICs. Frontmatter of jobs/<company>-<role>-<date>.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "company",
+    "role_title_zh",
+    "cc_required",
+    "apply_url",
+    "contact_value"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["0.1"]
+    },
+    "company": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "role_title_zh": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Chinese title is required (primary audience)."
+    },
+    "role_title_en": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "cc_required": {
+      "type": "boolean",
+      "description": "Whether cc-fluency is required (true) or preferred (false). Must be true to be listed."
+    },
+    "apply_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https?://"
+    },
+    "contact_value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Email / Twitter / WeChat ID for the hiring contact."
+    },
+    "salary_range_rmb": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "employment_type": {
+      "type": "string",
+      "enum": ["full-time", "contract", "internship", "consulting"]
+    },
+    "location": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "remote_policy": {
+      "type": "string",
+      "enum": ["onsite", "remote-friendly", "remote-only"]
+    },
+    "open_until": {
+      "type": "string",
+      "format": "date"
+    },
+    "description_zh": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "description_en": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "closed"],
+      "default": "open"
+    }
+  }
+}
