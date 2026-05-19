@@ -329,9 +329,19 @@
           render(j, c, false);
           localStorage.setItem(CACHE_KEY, JSON.stringify({ t: now, j, c }));
         } catch (err) {
-          document.getElementById("jobs-count").textContent = "—";
-          document.getElementById("candidates-count").textContent = "—";
-          document.getElementById("counts-stale").textContent = "无法连 GitHub";
+          // 403/429 = our IP exhausted its anonymous GitHub quota (60/hr).
+          // It does NOT mean counts are unknown — it just means we can't fetch RIGHT NOW.
+          // Show "—" without alarming text; user can refresh in a few minutes.
+          // Last-known cached value (even if expired) is better than nothing.
+          let staleCached = null;
+          try { staleCached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch {}
+          if (staleCached) {
+            render(staleCached.j, staleCached.c, true);
+          } else {
+            document.getElementById("jobs-count").textContent = "—";
+            document.getElementById("candidates-count").textContent = "—";
+            document.getElementById("counts-stale").textContent = "稍后";
+          }
         }
       }
 
