@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>hireIC — cc-fluent IC 招聘频道</title>
+    <meta
+      name="description"
+      content="给每天用 Claude Code 干活的 IC 和真心招这种人的公司之间架一座桥. 协议优先, 平台是手段. A recruiting channel for ICs who actually ship with cc."
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="hireIC — cc-fluent IC 招聘频道" />
+    <meta
+      property="og:description"
+      content="LinkedIn 没法筛会用 Claude Code 的人. 这个 repo 是答案."
+    />
+    <meta property="og:url" content="https://hire.renlab.ai" />
+
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+
+    <style>
+      :root {
+        --bg: #fafaf7;
+        --fg: #1a1a1a;
+        --muted: #6b6b6b;
+        --accent: #c8472f;
+        --rule: #e3e0d8;
+        --code-bg: #f0ede5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #16161a;
+          --fg: #ededed;
+          --muted: #9a9a9a;
+          --accent: #ff6a4d;
+          --rule: #2a2a2e;
+          --code-bg: #22222a;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        font-feature-settings: "ss01", "cv11";
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      main {
+        max-width: 660px;
+        margin: 0 auto;
+        padding: 80px 24px 120px;
+      }
+      h1 {
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 28px;
+        line-height: 1.05;
+      }
+      h1 .accent { color: var(--accent); }
+      .tagline {
+        font-size: 22px;
+        font-weight: 400;
+        color: var(--fg);
+        margin: 0 0 40px;
+        line-height: 1.35;
+        letter-spacing: -0.005em;
+      }
+      .lede {
+        font-size: 17px;
+        color: var(--muted);
+        margin: 0 0 56px;
+        max-width: 540px;
+      }
+      .counts {
+        display: flex;
+        gap: 24px;
+        margin: 0 0 56px;
+        padding: 20px 0;
+        border-top: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rule);
+        font-variant-numeric: tabular-nums;
+      }
+      .counts .item { display: flex; flex-direction: column; gap: 4px; }
+      .counts .num {
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .counts .label {
+        font-size: 13px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .counts .stale { color: var(--muted); font-size: 12px; margin-left: auto; align-self: end; }
+      nav.cta { display: flex; flex-direction: column; gap: 0; margin: 0 0 64px; }
+      nav.cta a {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 0;
+        color: var(--fg);
+        text-decoration: none;
+        border-bottom: 1px solid var(--rule);
+        font-size: 17px;
+        transition: color 0.12s ease;
+      }
+      nav.cta a:first-child { border-top: 1px solid var(--rule); }
+      nav.cta a:hover { color: var(--accent); }
+      nav.cta a .arrow { color: var(--muted); }
+      nav.cta a:hover .arrow { color: var(--accent); }
+      nav.cta a .desc {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .why h2 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 16px;
+      }
+      .why p {
+        margin: 0 0 16px;
+        font-size: 16px;
+        color: var(--fg);
+      }
+      .why code {
+        background: var(--code-bg);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      .agent-block {
+        margin: 56px 0;
+        padding: 20px;
+        background: var(--code-bg);
+        border-radius: 6px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        overflow-x: auto;
+      }
+      .agent-block .comment { color: var(--muted); }
+      footer {
+        margin-top: 80px;
+        padding-top: 24px;
+        border-top: 1px solid var(--rule);
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+      footer a {
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.12s ease;
+      }
+      footer a:hover { color: var(--accent); }
+      .en {
+        font-size: 14px;
+        color: var(--muted);
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>hire<span class="accent">IC</span></h1>
+
+      <p class="tagline">
+        cc-fluent IC. 用 agent 干活. 招聘. 协议优先.
+      </p>
+
+      <p class="lede">
+        LinkedIn 没法筛"会用 Claude Code 的人". 这个 repo 是答案 — 一份机器可读的
+        schema, 一个零基础设施的中心注册表. 公司在自己的招聘流程里发现真正用 agent
+        干活的 IC, IC 用一份 profile 在多个聚合器之间通用.
+        <span class="en">A protocol-first recruiting channel for ICs who ship daily with Claude Code (or equivalent agents). One machine-readable schema. Zero infrastructure.</span>
+      </p>
+
+      <section class="counts" aria-label="活计数">
+        <div class="item">
+          <span class="num" id="jobs-count">—</span>
+          <span class="label">个职位 / jobs</span>
+        </div>
+        <div class="item">
+          <span class="num" id="candidates-count">—</span>
+          <span class="label">个候选人 / candidates</span>
+        </div>
+        <span class="stale" id="counts-stale"></span>
+      </section>
+
+      <nav class="cta">
+        <a id="link-candidate" href="#" target="_blank" rel="noopener">
+          <span>
+            我是 cc 用户, 我想被发现
+            <span class="desc">I'm a cc user, list me · 走 Issue Form 1 分钟搞定</span>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+        <a id="link-job" href="#" target="_blank" rel="noopener">
+          <span>
+            我招 cc 用户
+            <span class="desc">I'm hiring cc users · 必须是 cc-required, 加分项的走别处</span>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+        <a id="link-schema" href="#" target="_blank" rel="noopener">
+          <span>
+            看一眼 schema
+            <span class="desc">Read the schema · 我们到底定义了什么</span>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+      </nav>
+
+      <section class="why">
+        <h2>为什么 / Why</h2>
+        <p>
+          一年前用 cc 干活的 IC 是稀有动物, 现在不是了. 但招聘平台还没赶上 —
+          他们筛 "会 React", "会 Python", 没有字段筛 "用 agent 把活干漂亮".
+          这个空白主流平台不会补, 因为补了破坏他们关键词 SEO 模型.
+        </p>
+        <p>
+          所以另起一条. 协议优先 means: <code>agent-cv.json</code> 和
+          <code>agent-jobs.json</code> 任何公司都能在自己的 GitHub repo 挂,
+          hireIC 仓库只是众多聚合器之一. 跟 RSS / sitemap.xml / schema.org
+          一个思路, 不跟 LinkedIn 一个思路.
+        </p>
+        <p>
+          候选人 cc-fluency 不靠自报, 靠 <code>evidence_url</code> —
+          公开 PR / commits 里的 Co-authored-by Claude 痕迹 / cc session
+          transcript / 推荐人附的具体 PR. 你说你用得好, 拿东西证明.
+        </p>
+      </section>
+
+      <section>
+        <h2 style="font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 56px 0 16px;">
+          Agent 原生访问 / MCP
+        </h2>
+        <div class="agent-block">
+<span class="comment"># Claude Desktop / Cursor / 任何 MCP client</span>
+<span class="comment"># claude_desktop_config.json:</span>
+{
+  "mcpServers": {
+    "hireic": {
+      "command": "npx",
+      "args": ["hireic-mcp", "--owner", "<gh-user>", "--repo", "hireIC"]
+    }
+  }
+}
+
+<span class="comment"># Tools: list_jobs · list_candidates</span>
+<span class="comment"># 输出严格符合 schemas/*.schema.json, hidden-mode 候选人不泄露真联系方式</span>
+        </div>
+      </section>
+
+      <footer>
+        <a id="link-repo" href="#" target="_blank" rel="noopener">GitHub</a>
+        <a id="link-readme" href="#" target="_blank" rel="noopener">README</a>
+        <a id="link-mit" href="#" target="_blank" rel="noopener">MIT License</a>
+        <span>by <a href="https://renlab.ai" target="_blank" rel="noopener">renlab</a></span>
+      </footer>
+    </main>
+
+    <script>
+      // ---------- Configuration ----------
+      // Change this single line if you fork/rebrand.
+      const GH_REPO = "baidu/hireIC";
+      // -----------------------------------
+
+      const ghBase = `https://github.com/${GH_REPO}`;
+      document.getElementById("link-candidate").href =
+        `${ghBase}/issues/new?template=candidate.yml`;
+      document.getElementById("link-job").href =
+        `${ghBase}/issues/new?template=job.yml`;
+      document.getElementById("link-schema").href = `${ghBase}/blob/main/SCHEMA.md`;
+      document.getElementById("link-repo").href = ghBase;
+      document.getElementById("link-readme").href = `${ghBase}/blob/main/README.md`;
+      document.getElementById("link-mit").href = `${ghBase}/blob/main/LICENSE`;
+
+      // ---------- Live counts ----------
+      // Cache 5 minutes in localStorage so refreshes don't hammer GitHub
+      // (unauth API limit: 60 req/hr/IP).
+      const CACHE_KEY = "hireic:counts";
+      const CACHE_TTL = 5 * 60 * 1000;
+
+      function countMd(items) {
+        if (!Array.isArray(items)) return 0;
+        return items.filter(
+          (i) => i?.type === "file" && i?.name?.endsWith(".md") && !i.name.startsWith("."),
+        ).length;
+      }
+
+      async function fetchCount(path) {
+        const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${path}`);
+        if (res.status === 404) return 0;
+        if (res.status === 403 || res.status === 429) throw new Error("rate-limited");
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        return countMd(await res.json());
+      }
+
+      async function loadCounts() {
+        const now = Date.now();
+        try {
+          const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+          if (cached && now - cached.t < CACHE_TTL) {
+            render(cached.j, cached.c, true);
+            return;
+          }
+        } catch {}
+
+        try {
+          const [j, c] = await Promise.all([fetchCount("jobs"), fetchCount("candidates")]);
+          render(j, c, false);
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ t: now, j, c }));
+        } catch (err) {
+          document.getElementById("jobs-count").textContent = "—";
+          document.getElementById("candidates-count").textContent = "—";
+          document.getElementById("counts-stale").textContent = "无法连 GitHub";
+        }
+      }
+
+      function render(j, c, fromCache) {
+        document.getElementById("jobs-count").textContent = j;
+        document.getElementById("candidates-count").textContent = c;
+        document.getElementById("counts-stale").textContent = fromCache ? "缓存" : "";
+      }
+
+      loadCounts();
+    </script>
+  </body>
+</html>
