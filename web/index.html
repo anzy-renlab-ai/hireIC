@@ -3,364 +3,717 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>hireIC — cc-fluent IC 招聘频道</title>
-    <meta
-      name="description"
-      content="给每天用 Claude Code 干活的 IC 和真心招这种人的公司之间架一座桥. 协议优先, 平台是手段. A recruiting channel for ICs who actually ship with cc."
-    />
+    <title>renlab/hire — engineers who read source</title>
+    <meta name="description" content="renlab hires engineers who read source, not press releases. We hire engineers who ship with Claude Code daily." />
 
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="hireIC — cc-fluent IC 招聘频道" />
-    <meta
-      property="og:description"
-      content="LinkedIn 没法筛会用 Claude Code 的人. 这个 repo 是答案."
-    />
+    <meta property="og:title" content="renlab/hire — engineers who read source" />
+    <meta property="og:description" content="renlab hires engineers who read source, not press releases." />
     <meta property="og:url" content="https://hire.renlab.ai" />
     <meta property="og:image" content="https://hire.renlab.ai/og.svg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="hireIC — cc-fluent IC 招聘频道" />
-    <meta name="twitter:description" content="LinkedIn 没法筛会用 Claude Code 的人. 这个 repo 是答案." />
+    <meta name="twitter:title" content="renlab/hire — engineers who read source" />
+    <meta name="twitter:description" content="renlab hires engineers who read source, not press releases." />
     <meta name="twitter:image" content="https://hire.renlab.ai/og.svg" />
 
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c8472f'/%3E%3Ctext x='16' y='22' font-family='-apple-system,system-ui,sans-serif' font-size='18' font-weight='700' text-anchor='middle' fill='white'%3EhC%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0c0a'/%3E%3Ctext x='4' y='22' font-family='ui-monospace,monospace' font-size='20' font-weight='700' fill='%236cf28a'%3E$_%3C/text%3E%3C/svg%3E" />
 
-    <link rel="preconnect" href="https://rsms.me/" />
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
     <style>
+      /* ===== terminal hire — styles (extracted from approved design) ===== */
       :root {
-        --bg: #fafaf7;
-        --fg: #1a1a1a;
-        --muted: #6b6b6b;
-        --accent: #c8472f;
-        --rule: #e3e0d8;
-        --code-bg: #f0ede5;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #16161a;
-          --fg: #ededed;
-          --muted: #9a9a9a;
-          --accent: #ff6a4d;
-          --rule: #2a2a2e;
-          --code-bg: #22222a;
-        }
+        --bg:        #0a0c0a;
+        --bg-1:      #0f1310;
+        --bg-2:      #161b18;
+        --line:      #1f2622;
+        --line-2:    #2a322c;
+        --fg:        #cfe3d2;
+        --fg-2:      #8aa392;
+        --fg-3:      #5a6d63;
+        --accent:    #6cf28a;
+        --accent-2:  #7df0ff;
+        --warn:      #ffd166;
+        --danger:    #ff6b6b;
+        --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+        --display: 'JetBrains Mono', ui-monospace, monospace;
       }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
-      body {
-        background: var(--bg);
-        color: var(--fg);
-        font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-        font-feature-settings: "ss01", "cv11";
-        line-height: 1.55;
-        -webkit-font-smoothing: antialiased;
-        text-rendering: optimizeLegibility;
-      }
-      main {
-        max-width: 660px;
-        margin: 0 auto;
-        padding: 80px 24px 120px;
-      }
-      h1 {
-        font-size: 44px;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        margin: 0 0 28px;
-        line-height: 1.05;
-      }
-      h1 .accent { color: var(--accent); }
-      .tagline {
-        font-size: 22px;
-        font-weight: 400;
-        color: var(--fg);
-        margin: 0 0 40px;
-        line-height: 1.35;
-        letter-spacing: -0.005em;
-      }
-      .lede {
-        font-size: 17px;
-        color: var(--muted);
-        margin: 0 0 56px;
-        max-width: 540px;
-      }
-      .counts {
-        display: flex;
-        gap: 24px;
-        margin: 0 0 56px;
-        padding: 20px 0;
-        border-top: 1px solid var(--rule);
-        border-bottom: 1px solid var(--rule);
-        font-variant-numeric: tabular-nums;
-      }
-      .counts .item { display: flex; flex-direction: column; gap: 4px; }
-      .counts .num {
-        font-size: 28px;
-        font-weight: 600;
-        letter-spacing: -0.01em;
-      }
-      .counts .label {
-        font-size: 13px;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-      .counts .stale { color: var(--muted); font-size: 12px; margin-left: auto; align-self: end; }
-      nav.cta { display: flex; flex-direction: column; gap: 0; margin: 0 0 64px; }
-      nav.cta a {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 0;
-        color: var(--fg);
-        text-decoration: none;
-        border-bottom: 1px solid var(--rule);
-        font-size: 17px;
-        transition: color 0.12s ease;
-      }
-      nav.cta a:first-child { border-top: 1px solid var(--rule); }
-      nav.cta a:hover { color: var(--accent); }
-      nav.cta a .arrow { color: var(--muted); }
-      nav.cta a:hover .arrow { color: var(--accent); }
-      nav.cta a .desc {
-        display: block;
-        font-size: 13px;
-        color: var(--muted);
-        margin-top: 4px;
-      }
-      .why h2 {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin: 0 0 16px;
-      }
-      .why p {
-        margin: 0 0 16px;
-        font-size: 16px;
-        color: var(--fg);
-      }
-      .why code {
-        background: var(--code-bg);
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 0.9em;
-        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      }
-      .agent-block {
-        margin: 56px 0;
-        padding: 20px;
-        background: var(--code-bg);
-        border-radius: 6px;
-        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-        font-size: 13px;
-        line-height: 1.6;
-        overflow-x: auto;
-      }
-      .agent-block .comment { color: var(--muted); }
-      footer {
-        margin-top: 80px;
-        padding-top: 24px;
-        border-top: 1px solid var(--rule);
-        font-size: 13px;
-        color: var(--muted);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 20px;
-      }
-      footer a {
-        color: var(--muted);
-        text-decoration: none;
-        transition: color 0.12s ease;
-      }
-      footer a:hover { color: var(--accent); }
-      .en {
-        font-size: 14px;
-        color: var(--muted);
-        margin-top: 4px;
-        line-height: 1.4;
+      html, body, #root { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 13.5px; line-height: 1.5; -webkit-font-smoothing: antialiased; font-feature-settings: 'ss01', 'ss02', 'liga'; }
+      body { background-image: radial-gradient(1200px 600px at 80% -10%, rgba(108,242,138,0.05), transparent 60%), radial-gradient(900px 500px at -10% 110%, rgba(125,240,255,0.04), transparent 60%); }
+      ::selection { background: var(--accent); color: #06120a; }
+      a { color: inherit; text-decoration: none; }
+      a.link { color: var(--accent); }
+      a.link:hover { text-decoration: underline; text-underline-offset: 3px; }
+      button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+      .app { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; }
+
+      /* topbar */
+      .topbar { display: flex; align-items: center; gap: 16px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--bg-1); position: sticky; top: 0; z-index: 50; }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: 0.02em; }
+      .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse 2s ease-in-out infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.85); } }
+      .brand b { font-weight: 700; color: var(--fg); }
+      .brand .slash { color: var(--fg-3); }
+      .brand .sub { color: var(--fg-2); font-weight: 400; }
+      .nav { display: flex; gap: 4px; margin-left: 18px; }
+      .nav a { padding: 6px 10px; color: var(--fg-2); font-size: 12.5px; position: relative; cursor: pointer; }
+      .nav a:hover { color: var(--fg); background: var(--bg-2); }
+      .nav a.active { color: var(--accent); }
+      .nav a.active::before { content: "▸ "; color: var(--accent); }
+      .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--fg-2); font-size: 12px; }
+      .topbar-right .open-tag { color: var(--fg-3); }
+      .kbd { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid var(--line-2); border-bottom-width: 2px; background: var(--bg-2); color: var(--fg); border-radius: 3px; font-family: var(--mono); font-size: 11px; line-height: 1.4; }
+      .cmd-trigger { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 8px; border: 1px solid var(--line-2); color: var(--fg-2); font-size: 12px; cursor: pointer; }
+      .cmd-trigger:hover { border-color: var(--accent); color: var(--fg); }
+      .cmd-trigger .arrow { color: var(--fg-3); }
+
+      .cta { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--accent); color: #06120a; font-weight: 600; border: 1px solid var(--accent); cursor: pointer; font-family: var(--mono); font-size: 13px; }
+      .cta:hover { background: transparent; color: var(--accent); }
+      .cta.ghost { background: transparent; color: var(--fg); border-color: var(--line-2); }
+      .cta.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+      /* main */
+      .main { display: flex; flex-direction: column; }
+
+      /* statusbar */
+      .statusbar { display: flex; align-items: center; gap: 18px; padding: 6px 18px; border-top: 1px solid var(--line); background: var(--bg-1); color: var(--fg-3); font-size: 11.5px; letter-spacing: 0.02em; }
+      .statusbar .sep { color: var(--line-2); }
+      .statusbar .ok { color: var(--accent); }
+      .statusbar .right { margin-left: auto; display: flex; gap: 16px; align-items: center; }
+      .statusbar .blink { display: inline-block; width: 7px; height: 7px; background: var(--accent); margin-right: 6px; animation: blink 1.2s steps(1) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      h1, h2, h3 { font-family: var(--display); margin: 0; font-weight: 700; }
+
+      /* HERO */
+      .hero-wrap { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line); min-height: 580px; }
+      .hero-left { padding: 40px 32px 36px; display: flex; flex-direction: column; gap: 22px; border-right: 1px solid var(--line); position: relative; }
+      .hero-left::after { content: ""; position: absolute; left: -1px; top: 16px; bottom: 16px; width: 1px; background: linear-gradient(to bottom, transparent, var(--accent), transparent); opacity: 0.4; }
+      .hero-tag { display: inline-flex; gap: 10px; align-items: center; color: var(--fg-2); font-size: 11.5px; }
+      .hero-tag .blob { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 6px var(--accent); }
+      .hero-title { font-family: var(--display); font-size: 64px; line-height: 1.0; letter-spacing: -0.025em; font-weight: 700; }
+      .hero-title .accent { color: var(--accent); }
+      .hero-title .cursor { display: inline-block; width: 0.4em; height: 0.85em; background: var(--accent); vertical-align: -0.05em; margin-left: 4px; animation: blink 1s steps(1) infinite; }
+      .hero-sub { color: var(--fg-2); font-size: 14px; max-width: 44ch; }
+      .hero-sub code { color: var(--accent); }
+      .hero-meta { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px 18px; margin-top: auto; border-top: 1px dashed var(--line-2); padding-top: 18px; }
+      .hero-meta .stat .n { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--fg); font-variant-numeric: tabular-nums; }
+      .hero-meta .stat .n .unit { color: var(--accent); }
+      .hero-meta .stat .l { color: var(--fg-3); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+      .terminal { background: var(--bg-1); display: flex; flex-direction: column; font-family: var(--mono); }
+      .term-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--fg-3); font-size: 11px; }
+      .term-head .dots { display: flex; gap: 5px; }
+      .term-head .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); display: block; }
+      .term-head .dots i.r { background: #ff5f57; }
+      .term-head .dots i.y { background: #febc2e; }
+      .term-head .dots i.g { background: #28c840; }
+      .term-head .title { margin-left: 6px; }
+      .term-head .meta { margin-left: auto; }
+      .term-body { padding: 14px 16px 18px; flex: 1; font-size: 12.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+      .term-body .row { white-space: pre-wrap; }
+      .term-body .prompt { color: var(--accent); }
+      .term-body .user { color: var(--accent-2); }
+      .term-body .cmd { color: var(--fg); }
+      .term-body .out { color: var(--fg-2); }
+      .term-body .ok { color: var(--accent); }
+      .term-body .dim { color: var(--fg-3); }
+      .term-body .hi { color: var(--fg); }
+      .ascii { color: var(--accent); font-size: 9px; line-height: 1.05; white-space: pre; margin: 6px 0 4px; text-shadow: 0 0 8px rgba(108,242,138,0.25); }
+
+      /* feature strip — principles */
+      .strip { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
+      .strip .cell { padding: 22px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+      .strip .cell:last-child { border-right: 0; }
+      .strip .cell .k { color: var(--fg-3); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+      .strip .cell .v { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+      .strip .cell .v .accent { color: var(--accent); }
+      .strip .cell .desc { color: var(--fg-2); font-size: 12px; }
+
+      /* why grid */
+      .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+      .why-grid .why { padding: 26px 24px; border-right: 1px solid var(--line); }
+      .why-grid .why:last-child { border-right: 0; }
+      .why .num { color: var(--fg-3); font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; }
+      .why h3 { margin: 8px 0; font-size: 18px; color: var(--fg); }
+      .why p { color: var(--fg-2); font-size: 13px; margin: 0; }
+      .why .glyph { font-family: var(--display); color: var(--accent); font-size: 18px; margin-bottom: 10px; white-space: pre; line-height: 1.1; }
+
+      /* job board */
+      .board-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 28px 24px 14px; }
+      .board-head .title { display: flex; gap: 12px; align-items: baseline; }
+      .board-head h2 { font-size: 24px; }
+      .board-head .count { color: var(--fg-3); font-size: 12.5px; }
+      .board-head .count b { color: var(--accent); font-weight: 600; }
+      .jobs { font-family: var(--mono); }
+      .jobs-header, .job-row { display: grid; grid-template-columns: 36px 1.8fr 1fr 0.9fr 0.9fr 0.5fr 28px; padding: 10px 24px; align-items: center; gap: 12px; }
+      .jobs-header { color: var(--fg-3); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--line); background: var(--bg-1); }
+      .job-row { border-bottom: 1px solid var(--line); cursor: pointer; transition: background 0.08s; position: relative; }
+      .job-row:hover { background: var(--bg-1); }
+      .job-row .idx { color: var(--fg-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+      .job-row .role { font-weight: 600; color: var(--fg); font-size: 14px; }
+      .job-row .team { color: var(--fg-2); font-size: 12.5px; }
+      .job-row .loc { color: var(--fg-2); font-size: 12.5px; }
+      .job-row .comp { color: var(--accent); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+      .job-row .lvl { font-size: 10.5px; padding: 1px 5px; border: 1px solid var(--line-2); color: var(--fg-2); display: inline-block; }
+      .job-row .arrow { color: var(--fg-3); text-align: right; }
+      .job-row:hover .arrow { color: var(--accent); }
+      .job-row .tagstrip { margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; }
+      .job-row .tagstrip .t { font-size: 10.5px; color: var(--fg-3); padding: 0 4px; border: 1px solid var(--line-2); }
+      .empty-state { padding: 60px 24px 80px; text-align: center; color: var(--fg-3); font-size: 13px; border-bottom: 1px solid var(--line); }
+      .empty-state .big { font-family: var(--display); font-size: 18px; color: var(--fg-2); margin-bottom: 12px; }
+      .empty-state .hint { margin-top: 16px; color: var(--fg-3); }
+      .empty-state .hint code { background: var(--bg-2); border: 1px solid var(--line-2); padding: 1px 6px; color: var(--accent); }
+
+      /* footer */
+      .footer { padding: 26px 24px 36px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 28px; border-top: 1px solid var(--line); font-size: 12.5px; }
+      .footer h5 { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); margin: 0 0 10px; font-weight: 500; }
+      .footer ul { list-style: none; padding: 0; margin: 0; }
+      .footer li { padding: 3px 0; color: var(--fg-2); }
+      .footer li a { display: block; }
+      .footer li a:hover { color: var(--accent); }
+      .footer .copy { color: var(--fg-3); font-size: 12px; }
+      .footer .copy .ver { color: var(--accent); }
+      .logo-big { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: -0.025em; color: var(--fg); margin-bottom: 10px; }
+
+      /* boot */
+      .boot { position: fixed; inset: 0; background: var(--bg); z-index: 50000; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: var(--mono); color: var(--accent); transition: opacity 0.4s ease; }
+      .boot .lines { width: min(560px, 90vw); font-size: 12.5px; line-height: 1.6; color: var(--fg-2); padding: 24px; }
+      .boot .lines .ok { color: var(--accent); }
+      .boot .lines .dim { color: var(--fg-3); }
+      .boot.gone { opacity: 0; pointer-events: none; }
+
+      /* cmd palette */
+      .cmd-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; animation: fadein 0.12s ease-out; }
+      @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+      .cmd-panel { width: min(640px, 92vw); background: var(--bg-1); border: 1px solid var(--line-2); box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(108,242,138,0.2); }
+      .cmd-panel .head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+      .cmd-panel .head .pre { color: var(--accent); }
+      .cmd-panel .head input { flex: 1; background: transparent; border: 0; outline: none; color: var(--fg); font-family: var(--mono); font-size: 14px; }
+      .cmd-panel .items { max-height: 360px; overflow-y: auto; }
+      .cmd-panel .item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; }
+      .cmd-panel .item:hover, .cmd-panel .item.active { background: var(--bg-2); color: var(--accent); }
+      .cmd-panel .item .label { flex: 1; }
+      .cmd-panel .item .group { color: var(--fg-3); font-size: 11px; }
+      .cmd-panel .foot { display: flex; gap: 14px; padding: 8px 16px; color: var(--fg-3); font-size: 11px; border-top: 1px solid var(--line); }
+
+      /* responsive */
+      @media (max-width: 900px) {
+        .hero-wrap { grid-template-columns: 1fr; min-height: auto; }
+        .hero-left { border-right: 0; border-bottom: 1px solid var(--line); }
+        .hero-title { font-size: 44px; }
+        .strip { grid-template-columns: repeat(2, 1fr); }
+        .jobs-header, .job-row { grid-template-columns: 28px 1.5fr 1fr 24px; }
+        .job-row .loc, .job-row .comp, .job-row .lvl, .jobs-header .loc, .jobs-header .comp, .jobs-header .lvl { display: none; }
+        .why-grid { grid-template-columns: 1fr; }
+        .why-grid .why { border-right: 0; border-bottom: 1px solid var(--line); }
+        .footer { grid-template-columns: 1fr 1fr; }
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>hire<span class="accent">IC</span></h1>
+    <div class="boot" id="boot">
+      <div class="lines">
+        <div><span class="dim">renlab — boot sequence —</span> <span id="boot-host">connecting…</span></div>
+        <div id="boot-l1"></div>
+        <div id="boot-l2"></div>
+        <div id="boot-l3"></div>
+      </div>
+    </div>
 
-      <p class="tagline">
-        cc-fluent IC. 用 agent 干活. 招聘. 协议优先.
-      </p>
-
-      <p class="lede">
-        LinkedIn 没法筛"会用 Claude Code 的人". 这个 repo 是答案 — 一份机器可读的
-        schema, 一个零基础设施的中心注册表. 公司在自己的招聘流程里发现真正用 agent
-        干活的 IC, IC 用一份 profile 在多个聚合器之间通用.
-        <span class="en">A protocol-first recruiting channel for ICs who ship daily with Claude Code (or equivalent agents). One machine-readable schema. Zero infrastructure.</span>
-      </p>
-
-      <section class="counts" aria-label="活计数">
-        <div class="item">
-          <span class="num" id="jobs-count">—</span>
-          <span class="label">个职位 / jobs</span>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand"><span class="dot"></span><b>renlab</b><span class="slash">/</span><span class="sub">hire</span></div>
+        <nav class="nav">
+          <a class="active">~/home</a>
+          <a id="nav-jobs" href="#openings">/openings</a>
+          <a id="nav-apply" href="#">/apply</a>
+        </nav>
+        <div class="topbar-right">
+          <span class="open-tag" id="topbar-open-tag">— roles loading</span>
+          <button class="cmd-trigger" id="cmd-trigger">
+            <span style="color: var(--accent);">$</span>
+            <span>search · run · navigate</span>
+            <span class="arrow">  </span>
+            <span class="kbd">⌘</span><span class="kbd">K</span>
+          </button>
         </div>
-        <div class="item">
-          <span class="num" id="candidates-count">—</span>
-          <span class="label">个候选人 / candidates</span>
+      </header>
+
+      <div class="main">
+        <section class="hero">
+          <div class="hero-wrap">
+            <div class="hero-left">
+              <div class="hero-tag"><span class="blob"></span> <span id="hero-tag-text">currently hiring</span></div>
+              <h1 class="hero-title">we hire <span class="accent">engineers</span><br>who read <span class="accent">source</span>,<br>not press releases.<span class="cursor"></span></h1>
+              <p class="hero-sub">renlab hires engineers who <code>git blame</code> themselves at 3am, hold strong opinions about GPU memory hierarchy, and think <span style="color: var(--accent);">"this line could go 4× faster."</span><br><br>If <code>O(n²)</code> makes you wince and the attention formula makes your pulse pick up — we want to talk.</p>
+              <div class="hero-actions">
+                <a class="cta" id="cta-browse" href="#openings">./browse-openings.sh →</a>
+                <a class="cta ghost" id="cta-apply" href="#">cat resume | renlab apply</a>
+              </div>
+              <div class="hero-meta">
+                <div class="stat"><div class="n" id="stat-jobs">—</div><div class="l">open roles</div></div>
+                <div class="stat"><div class="n" id="stat-candidates">—</div><div class="l">candidates</div></div>
+                <div class="stat"><div class="n" id="stat-schema">0.1</div><div class="l">schema · v</div></div>
+              </div>
+            </div>
+            <div class="terminal">
+              <div class="term-head">
+                <div class="dots"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+                <span class="title">~/renlab — zsh</span>
+                <span class="meta" id="term-meta">live</span>
+              </div>
+              <div class="term-body">
+                <div class="ascii">
+██████╗ ███████╗███╗   ██╗██╗      █████╗ ██████╗
+██╔══██╗██╔════╝████╗  ██║██║     ██╔══██╗██╔══██╗
+██████╔╝█████╗  ██╔██╗ ██║██║     ███████║██████╔╝
+██╔══██╗██╔══╝  ██║╚██╗██║██║     ██╔══██║██╔══██╗
+██║  ██║███████╗██║ ╚████║███████╗██║  ██║██████╔╝
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚═════╝
+                </div>
+                <div class="dim">// type <code style="color: var(--accent);">./apply.sh</code> or press <span class="kbd">⌘</span><span class="kbd">K</span></div>
+                <br />
+                <div class="row"><span class="prompt">renlab</span><span class="dim">@</span><span class="user">you</span><span class="dim">:~$ </span><span class="cmd">whoami</span></div>
+                <div class="row out">anonymous@renlab — credentials: pending</div>
+                <div class="row"><span class="prompt">renlab</span><span class="dim">@</span><span class="user">you</span><span class="dim">:~$ </span><span class="cmd">ls ./openings</span></div>
+                <div class="row" id="term-openings" style="display: flex; flex-direction: column; gap: 2px;">
+                  <span class="dim">// fetching from github…</span>
+                </div>
+                <div class="row"><span class="prompt">renlab</span><span class="dim">@</span><span class="user">you</span><span class="dim">:~$ </span><span class="cmd">cat ./mission.txt</span></div>
+                <div class="row" style="display: flex; flex-direction: column; gap: 2px;">
+                  <span class="hi">// renlab — building the substrate for the next decade of intelligence.</span>
+                  <span class="out">we ship models, the infra under them, and the tools on top.</span>
+                  <span class="out">we hire people who would do this on weekends anyway.</span>
+                </div>
+                <div class="row"><span class="prompt">renlab</span><span class="dim">@</span><span class="user">you</span><span class="dim">:~$ </span><span class="cmd">./apply.sh --role=any</span></div>
+                <div class="row ok">→ press <span class="kbd">⌘</span><span class="kbd">K</span>, or click below, to begin.</div>
+                <div class="row"><span class="prompt">renlab</span><span class="dim">@</span><span class="user">you</span><span class="dim">:~$ </span><span class="cursor" style="display:inline-block;width:0.5em;height:1em;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(1) infinite"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="strip">
+            <div class="cell">
+              <div class="k">// principle 01</div>
+              <div class="v">make it <span class="accent">measurable</span>.</div>
+              <div class="desc">Every claim ships with a benchmark you can run. Intuition matters, but only after it's tested.</div>
+            </div>
+            <div class="cell">
+              <div class="k">// principle 02</div>
+              <div class="v">ship a <span class="accent">main</span>, not a fork.</div>
+              <div class="desc">Work on trunk. Deploy weekly. If it breaks, fix it — slow is more dangerous than broken.</div>
+            </div>
+            <div class="cell">
+              <div class="k">// principle 03</div>
+              <div class="v">read the <span class="accent">paper</span>, then doubt it.</div>
+              <div class="desc">Frontier ≠ truth. We read arxiv, but we trust code that runs.</div>
+            </div>
+            <div class="cell">
+              <div class="k">// principle 04</div>
+              <div class="v">no <span class="accent">heroes</span>, just commits.</div>
+              <div class="desc">No senior calling shots. Code talks, benches talk. Everyone has push access.</div>
+            </div>
+          </div>
+
+          <div class="why-grid">
+            <div class="why">
+              <div class="glyph">╔═══╗
+║ ▓ ║
+╚═══╝</div>
+              <div class="num">// compute</div>
+              <h3>no quotas, just SLAs</h3>
+              <p>Need significant compute? Open an issue. We sign off without meetings — we look at ROI, not headcount politics.</p>
+            </div>
+            <div class="why">
+              <div class="glyph">┌─┐ ┌─┐
+│ │─│ │
+└─┘ └─┘</div>
+              <div class="num">// culture</div>
+              <h3>allergic to bullshit</h3>
+              <p>No alignment meetings about alignment. No "strategic synergy." No KPIs on the wall. PRs, benches, and the product.</p>
+            </div>
+            <div class="why">
+              <div class="glyph">◢███◣
+████◤
+◥██◤</div>
+              <div class="num">// equity</div>
+              <h3>your name is on it</h3>
+              <p>You wrote it, you ship it, you own it. What lands on main has your handle next to it.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="openings">
+          <div class="board-head">
+            <div class="title">
+              <h2>$ ls ./openings</h2>
+              <span class="count" id="openings-count">— loading</span>
+            </div>
+            <a class="cta ghost" id="openings-apply" href="#">./apply →</a>
+          </div>
+          <div id="jobs-container">
+            <div class="empty-state">
+              <div class="big">scanning openings…</div>
+              <div>connecting to github.com/anzy-renlab-ai/hireIC</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="footer">
+          <div>
+            <div class="logo-big">renlab<span style="color: var(--accent);">/</span>hire</div>
+            <p style="color: var(--fg-2); font-size: 12.5px; max-width: 40ch; margin: 0;">Building intelligence at substrate level.</p>
+            <div class="copy" style="margin-top: 16px;">
+              © 2026 renlab — <span class="ver">v0.1</span> · <a class="link" id="footer-commits" href="https://github.com/anzy-renlab-ai/hireIC/commits/main">/changelog</a>
+            </div>
+          </div>
+          <div>
+            <h5>openings</h5>
+            <ul>
+              <li><a id="footer-apply-candidate" href="#">apply as candidate</a></li>
+              <li><a id="footer-apply-job" href="#">post a job</a></li>
+              <li><a href="#openings">browse all</a></li>
+            </ul>
+          </div>
+          <div>
+            <h5>protocol</h5>
+            <ul>
+              <li><a id="footer-schema" href="#">SCHEMA.md</a></li>
+              <li><a id="footer-readme" href="#">README</a></li>
+              <li><a id="footer-mcp" href="#">MCP server</a></li>
+            </ul>
+          </div>
+          <div>
+            <h5>contact</h5>
+            <ul>
+              <li>hire@renlab.ai</li>
+              <li><a id="footer-github" href="#">github.com/anzy-renlab-ai</a></li>
+              <li><a href="https://renlab.ai">renlab.ai</a></li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <footer class="statusbar">
+        <span><span class="blink"></span> CONNECTED</span>
+        <span class="sep">│</span>
+        <span><span class="ok">●</span> ~</span>
+        <span class="sep">│</span>
+        <span>main</span>
+        <span class="sep">│</span>
+        <span><span class="ok">+</span><span id="status-jobs">—</span> <span class="dim">-0</span> <span style="color: var(--fg-3);">roles</span></span>
+        <div class="right">
+          <span>UTF-8</span><span class="sep">│</span>
+          <span>NORMAL</span><span class="sep">│</span>
+          <span style="color: var(--accent);" id="status-clock">—:—:—</span>
         </div>
-        <span class="stale" id="counts-stale"></span>
-      </section>
-
-      <nav class="cta">
-        <a id="link-candidate" href="#" target="_blank" rel="noopener">
-          <span>
-            我是 cc 用户, 我想被发现
-            <span class="desc">I'm a cc user, list me · 走 Issue Form 1 分钟搞定</span>
-          </span>
-          <span class="arrow">→</span>
-        </a>
-        <a id="link-job" href="#" target="_blank" rel="noopener">
-          <span>
-            我招 cc 用户
-            <span class="desc">I'm hiring cc users · 必须是 cc-required, 加分项的走别处</span>
-          </span>
-          <span class="arrow">→</span>
-        </a>
-        <a id="link-schema" href="#" target="_blank" rel="noopener">
-          <span>
-            看一眼 schema
-            <span class="desc">Read the schema · 我们到底定义了什么</span>
-          </span>
-          <span class="arrow">→</span>
-        </a>
-      </nav>
-
-      <section class="why">
-        <h2>为什么 / Why</h2>
-        <p>
-          一年前用 cc 干活的 IC 是稀有动物, 现在不是了. 但招聘平台还没赶上 —
-          他们筛 "会 React", "会 Python", 没有字段筛 "用 agent 把活干漂亮".
-          这个空白主流平台不会补, 因为补了破坏他们关键词 SEO 模型.
-        </p>
-        <p>
-          所以另起一条. 协议优先 means: <code>agent-cv.json</code> 和
-          <code>agent-jobs.json</code> 任何公司都能在自己的 GitHub repo 挂,
-          hireIC 仓库只是众多聚合器之一. 跟 RSS / sitemap.xml / schema.org
-          一个思路, 不跟 LinkedIn 一个思路.
-        </p>
-        <p>
-          候选人 cc-fluency 不靠自报, 靠 <code>evidence_url</code> —
-          公开 PR / commits 里的 Co-authored-by Claude 痕迹 / cc session
-          transcript / 推荐人附的具体 PR. 你说你用得好, 拿东西证明.
-        </p>
-      </section>
-
-      <section>
-        <h2 style="font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 56px 0 16px;">
-          Agent 原生访问 / MCP
-        </h2>
-        <div class="agent-block">
-<span class="comment"># Claude Desktop / Cursor / 任何 MCP client</span>
-<span class="comment"># claude_desktop_config.json:</span>
-{
-  "mcpServers": {
-    "hireic": {
-      "command": "npx",
-      "args": ["hireic-mcp", "--owner", "<gh-user>", "--repo", "hireIC"]
-    }
-  }
-}
-
-<span class="comment"># Tools: list_jobs · list_candidates</span>
-<span class="comment"># 输出严格符合 schemas/*.schema.json, hidden-mode 候选人不泄露真联系方式</span>
-        </div>
-      </section>
-
-      <footer>
-        <a id="link-repo" href="#" target="_blank" rel="noopener">GitHub</a>
-        <a id="link-readme" href="#" target="_blank" rel="noopener">README</a>
-        <a id="link-mit" href="#" target="_blank" rel="noopener">MIT License</a>
-        <span>by <a href="https://renlab.ai" target="_blank" rel="noopener">renlab</a></span>
       </footer>
-    </main>
+    </div>
+
+    <div class="cmd-overlay" id="cmd-overlay" style="display: none;">
+      <div class="cmd-panel">
+        <div class="head">
+          <span class="pre">$</span>
+          <input id="cmd-input" placeholder="type to filter · enter to run · esc to close" autocomplete="off" />
+        </div>
+        <div class="items" id="cmd-items"></div>
+        <div class="foot">
+          <span><span class="kbd">↑↓</span> navigate</span>
+          <span><span class="kbd">↵</span> run</span>
+          <span><span class="kbd">esc</span> close</span>
+        </div>
+      </div>
+    </div>
 
     <script>
-      // ---------- Configuration ----------
-      // Change this single line if you fork/rebrand.
+      // ============================================================
+      // CONFIG — change one line on fork/rebrand
+      // ============================================================
       const GH_REPO = "anzy-renlab-ai/hireIC";
-      // -----------------------------------
+      const APPLY_CANDIDATE_URL = `https://github.com/${GH_REPO}/issues/new?template=candidate.yml`;
+      const APPLY_JOB_URL = `https://github.com/${GH_REPO}/issues/new?template=job.yml`;
+      const SCHEMA_URL = `https://github.com/${GH_REPO}/blob/main/SCHEMA.md`;
+      const README_URL = `https://github.com/${GH_REPO}/blob/main/README.md`;
+      const MCP_URL = `https://github.com/${GH_REPO}/blob/main/mcp-server/README.md`;
+      const ORG_URL = `https://github.com/anzy-renlab-ai`;
 
-      const ghBase = `https://github.com/${GH_REPO}`;
-      document.getElementById("link-candidate").href =
-        `${ghBase}/issues/new?template=candidate.yml`;
-      document.getElementById("link-job").href =
-        `${ghBase}/issues/new?template=job.yml`;
-      document.getElementById("link-schema").href = `${ghBase}/blob/main/SCHEMA.md`;
-      document.getElementById("link-repo").href = ghBase;
-      document.getElementById("link-readme").href = `${ghBase}/blob/main/README.md`;
-      document.getElementById("link-mit").href = `${ghBase}/blob/main/LICENSE`;
+      // ---------- Wire links ----------
+      document.getElementById("cta-browse").href = "#openings";
+      document.getElementById("cta-apply").href = APPLY_CANDIDATE_URL;
+      document.getElementById("nav-apply").href = APPLY_CANDIDATE_URL;
+      document.getElementById("openings-apply").href = APPLY_CANDIDATE_URL;
+      document.getElementById("footer-apply-candidate").href = APPLY_CANDIDATE_URL;
+      document.getElementById("footer-apply-job").href = APPLY_JOB_URL;
+      document.getElementById("footer-schema").href = SCHEMA_URL;
+      document.getElementById("footer-readme").href = README_URL;
+      document.getElementById("footer-mcp").href = MCP_URL;
+      document.getElementById("footer-github").href = ORG_URL;
 
-      // ---------- Live counts ----------
-      // Cache 5 minutes in localStorage so refreshes don't hammer GitHub
-      // (unauth API limit: 60 req/hr/IP).
-      const CACHE_KEY = "hireic:counts";
-      const CACHE_TTL = 5 * 60 * 1000;
+      // ---------- Clock ----------
+      function tickClock() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        document.getElementById("status-clock").textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+      tickClock();
+      setInterval(tickClock, 1000);
+
+      // ---------- Boot sequence ----------
+      const boot = document.getElementById("boot");
+      const lines = [
+        { id: "boot-host", text: `${GH_REPO}` },
+        { id: "boot-l1", text: '<span class="ok">[ ok ]</span> resolve dns · cname.vercel-dns.com' },
+        { id: "boot-l2", text: '<span class="ok">[ ok ]</span> fetch /openings from github.com api' },
+        { id: "boot-l3", text: '<span class="dim">→ press ⌘K to skip · auto-continue 1.2s</span>' },
+      ];
+      let lineIdx = 0;
+      const writeBoot = () => {
+        if (lineIdx >= lines.length) {
+          setTimeout(() => boot.classList.add("gone"), 800);
+          setTimeout(() => boot.remove(), 1400);
+          return;
+        }
+        const l = lines[lineIdx++];
+        document.getElementById(l.id).innerHTML = l.text;
+        setTimeout(writeBoot, 220);
+      };
+      // Start boot after fonts settle
+      setTimeout(writeBoot, 100);
+      // Allow click-to-skip
+      boot.addEventListener("click", () => boot.remove());
+
+      // ---------- Live counts via GitHub Contents API ----------
+      // Note: 60 req/hr/IP anon limit. 5-min cache in localStorage.
+      const COUNTS_CACHE_KEY = "hireic:counts:v2";
+      const COUNTS_TTL = 5 * 60 * 1000;
 
       function countMd(items) {
-        if (!Array.isArray(items)) return 0;
+        if (!Array.isArray(items)) return [];
         return items.filter(
           (i) => i?.type === "file" && i?.name?.endsWith(".md") && !i.name.startsWith("."),
-        ).length;
+        );
       }
-
-      async function fetchCount(path) {
-        const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${path}`);
-        if (res.status === 404) return 0;
-        if (res.status === 403 || res.status === 429) throw new Error("rate-limited");
-        if (!res.ok) throw new Error(`http ${res.status}`);
-        return countMd(await res.json());
+      async function ghFetch(path) {
+        const r = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${path}`);
+        if (r.status === 404) return [];
+        if (!r.ok) throw new Error(`http ${r.status}`);
+        return r.json();
       }
-
-      async function loadCounts() {
+      async function loadData() {
         const now = Date.now();
+        let cached = null;
         try {
-          const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-          if (cached && now - cached.t < CACHE_TTL) {
-            render(cached.j, cached.c, true);
-            return;
-          }
+          const v = JSON.parse(localStorage.getItem(COUNTS_CACHE_KEY) || "null");
+          if (v && now - v.t < COUNTS_TTL) cached = v;
         } catch {}
-
+        if (cached) {
+          renderCounts(cached.jobs, cached.candidates, cached.jobsMd, true);
+          renderJobs(cached.jobsMd ?? []);
+          renderTermOpenings(cached.jobsMd ?? []);
+          return;
+        }
         try {
-          const [j, c] = await Promise.all([fetchCount("jobs"), fetchCount("candidates")]);
-          render(j, c, false);
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ t: now, j, c }));
+          const [jobsRaw, candsRaw] = await Promise.all([ghFetch("jobs"), ghFetch("candidates")]);
+          const jobsMd = countMd(jobsRaw);
+          const candsMd = countMd(candsRaw);
+          const payload = { t: now, jobs: jobsMd.length, candidates: candsMd.length, jobsMd: jobsMd.map(f => ({ name: f.name, download_url: f.download_url })) };
+          renderCounts(payload.jobs, payload.candidates, payload.jobsMd, false);
+          renderJobs(payload.jobsMd);
+          renderTermOpenings(payload.jobsMd);
+          localStorage.setItem(COUNTS_CACHE_KEY, JSON.stringify(payload));
         } catch (err) {
-          // 403/429 = our IP exhausted its anonymous GitHub quota (60/hr).
-          // It does NOT mean counts are unknown — it just means we can't fetch RIGHT NOW.
-          // Show "—" without alarming text; user can refresh in a few minutes.
-          // Last-known cached value (even if expired) is better than nothing.
-          let staleCached = null;
-          try { staleCached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); } catch {}
-          if (staleCached) {
-            render(staleCached.j, staleCached.c, true);
-          } else {
-            document.getElementById("jobs-count").textContent = "—";
-            document.getElementById("candidates-count").textContent = "—";
-            document.getElementById("counts-stale").textContent = "稍后";
-          }
+          // Stale cache fallback
+          try {
+            const v = JSON.parse(localStorage.getItem(COUNTS_CACHE_KEY) || "null");
+            if (v) {
+              renderCounts(v.jobs, v.candidates, v.jobsMd, true);
+              renderJobs(v.jobsMd ?? []);
+              renderTermOpenings(v.jobsMd ?? []);
+              return;
+            }
+          } catch {}
+          renderCounts(null, null, null, false);
+          renderJobs(null);
+          renderTermOpenings(null);
         }
       }
 
-      function render(j, c, fromCache) {
-        document.getElementById("jobs-count").textContent = j;
-        document.getElementById("candidates-count").textContent = c;
-        document.getElementById("counts-stale").textContent = fromCache ? "缓存" : "";
+      function renderCounts(jobs, candidates, jobsMd, fromCache) {
+        const jobsTxt = jobs == null ? "—" : String(jobs);
+        const candsTxt = candidates == null ? "—" : String(candidates);
+        document.getElementById("stat-jobs").textContent = jobsTxt;
+        document.getElementById("stat-candidates").textContent = candsTxt;
+        document.getElementById("status-jobs").textContent = jobsTxt;
+        document.getElementById("openings-count").innerHTML =
+          jobs == null ? "— <span class='dim'>(rate-limited, try later)</span>"
+                       : `— <b>${jobs}</b> total${fromCache ? " <span style='color: var(--fg-3);'>(cached)</span>" : ""}`;
+        document.getElementById("topbar-open-tag").textContent =
+          jobs == null ? "— roles unknown" : `${jobs} role${jobs === 1 ? "" : "s"} open`;
+        document.getElementById("hero-tag-text").textContent =
+          jobs == null ? "registry online" :
+          (jobs === 0 ? "registry online · awaiting first opening" : `currently hiring · ${jobs} open`);
       }
 
-      loadCounts();
+      function renderTermOpenings(jobsMd) {
+        const el = document.getElementById("term-openings");
+        if (jobsMd == null) { el.innerHTML = '<span class="dim">// connection blocked — see github directly</span>'; return; }
+        if (jobsMd.length === 0) { el.innerHTML = '<span class="dim">(empty — no openings posted yet. you might be the first)</span>'; return; }
+        el.innerHTML = jobsMd.slice(0, 6).map(f =>
+          `<span><span class="ok">drwx</span>  ${f.name.replace(/\.md$/, "").padEnd(36, " ")}</span>`
+        ).join("");
+      }
+
+      function renderJobs(jobsMd) {
+        const container = document.getElementById("jobs-container");
+        if (jobsMd == null) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="big">cannot reach github right now</div>
+              <div>your IP may be rate-limited (60 req/hr anon).</div>
+              <div class="hint">Browse openings directly: <a class="link" href="https://github.com/${GH_REPO}/tree/main/jobs">/jobs</a></div>
+            </div>`;
+          return;
+        }
+        if (jobsMd.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="big">// no openings posted yet</div>
+              <div>renlab/hire is a brand-new registry. No jobs have been published.</div>
+              <div class="hint">Hiring? Post the first one via Issue Form: <code>${APPLY_JOB_URL.replace('https://github.com/', '')}</code></div>
+              <div style="margin-top: 20px;">
+                <a class="cta" href="${APPLY_JOB_URL}">./post-job.sh →</a>
+              </div>
+            </div>`;
+          return;
+        }
+        // Real jobs: render via fetching each .md and parsing frontmatter client-side.
+        container.innerHTML = `
+          <div class="jobs">
+            <div class="jobs-header">
+              <span>#</span>
+              <span>role / team</span>
+              <span class="loc">location</span>
+              <span class="comp">compensation</span>
+              <span class="lvl">level</span>
+              <span>type</span>
+              <span></span>
+            </div>
+            <div id="job-rows"><div class="empty-state"><span class="dim">fetching frontmatter…</span></div></div>
+          </div>`;
+        Promise.all(jobsMd.map(f => fetch(f.download_url).then(r => r.text()).then(text => ({ name: f.name, text }))))
+          .then(results => {
+            const rows = results.map((r, i) => {
+              const fm = parseFrontmatter(r.text);
+              const company = fm.company || "—";
+              const role = fm.role_title_zh || fm.role_title_en || r.name.replace(/\.md$/, "");
+              const desc = fm.description_zh || fm.description_en || "";
+              const loc = fm.location || (fm.remote_policy === "remote-only" ? "Remote" : "—");
+              const comp = fm.salary_range_rmb || "—";
+              const type = fm.employment_type || "—";
+              const apply = fm.apply_url || `https://github.com/${GH_REPO}/blob/main/jobs/${r.name}`;
+              return `
+                <a class="job-row" href="${apply}" target="_blank" rel="noopener">
+                  <span class="idx">${String(i + 1).padStart(2, "0")}</span>
+                  <div>
+                    <div class="role">${escapeHtml(role)}</div>
+                    <div class="team">${escapeHtml(company)} · <span style="color: var(--fg-3);">${escapeHtml(desc.slice(0, 80))}</span></div>
+                  </div>
+                  <span class="loc">${escapeHtml(loc)}</span>
+                  <span class="comp">${escapeHtml(comp)}</span>
+                  <span><span class="lvl">—</span></span>
+                  <span style="color: var(--fg-3); font-size: 12px;">${escapeHtml(type)}</span>
+                  <span class="arrow">▸</span>
+                </a>`;
+            }).join("");
+            document.getElementById("job-rows").innerHTML = rows;
+          });
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
+      function parseFrontmatter(text) {
+        const m = text.match(/^---\s*\n([\s\S]*?)\n---/);
+        if (!m) return {};
+        const out = {};
+        for (const line of m[1].split("\n")) {
+          const kv = line.match(/^(\w+):\s*(.*)$/);
+          if (!kv) continue;
+          let v = kv[2].trim();
+          if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+          if (v === "true") v = true;
+          else if (v === "false") v = false;
+          else if (/^-?\d+$/.test(v)) v = Number(v);
+          out[kv[1]] = v;
+        }
+        return out;
+      }
+
+      // ---------- ⌘K command palette ----------
+      const cmdOverlay = document.getElementById("cmd-overlay");
+      const cmdInput = document.getElementById("cmd-input");
+      const cmdItems = document.getElementById("cmd-items");
+      const COMMANDS = [
+        { label: "apply as candidate", group: "openings", href: APPLY_CANDIDATE_URL },
+        { label: "post a job", group: "openings", href: APPLY_JOB_URL },
+        { label: "browse all openings", group: "openings", action: () => location.hash = "#openings" },
+        { label: "read SCHEMA.md", group: "protocol", href: SCHEMA_URL },
+        { label: "read README", group: "protocol", href: README_URL },
+        { label: "MCP server install", group: "protocol", href: MCP_URL },
+        { label: "github / anzy-renlab-ai", group: "external", href: ORG_URL },
+        { label: "renlab.ai", group: "external", href: "https://renlab.ai" },
+      ];
+      let cmdActive = 0;
+      function renderCmd(query) {
+        const q = query.trim().toLowerCase();
+        const filtered = q ? COMMANDS.filter(c => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q)) : COMMANDS;
+        cmdActive = Math.min(cmdActive, filtered.length - 1);
+        if (cmdActive < 0) cmdActive = 0;
+        cmdItems.innerHTML = filtered.map((c, i) =>
+          `<div class="item${i === cmdActive ? " active" : ""}" data-idx="${i}">
+             <span class="label">${escapeHtml(c.label)}</span>
+             <span class="group">${escapeHtml(c.group)}</span>
+           </div>`
+        ).join("") || `<div class="item"><span class="label" style="color: var(--fg-3);">no match</span></div>`;
+        Array.from(cmdItems.querySelectorAll(".item")).forEach((el, i) => {
+          el.addEventListener("click", () => runCmd(filtered[i]));
+        });
+        return filtered;
+      }
+      function runCmd(cmd) {
+        if (!cmd) return;
+        closeCmd();
+        if (cmd.href) window.open(cmd.href, "_blank", "noopener");
+        else if (cmd.action) cmd.action();
+      }
+      function openCmd() { cmdOverlay.style.display = "flex"; cmdInput.value = ""; cmdActive = 0; renderCmd(""); cmdInput.focus(); }
+      function closeCmd() { cmdOverlay.style.display = "none"; }
+      document.getElementById("cmd-trigger").addEventListener("click", openCmd);
+      cmdInput.addEventListener("input", () => renderCmd(cmdInput.value));
+      cmdInput.addEventListener("keydown", (e) => {
+        const filtered = COMMANDS.filter(c => !cmdInput.value || c.label.toLowerCase().includes(cmdInput.value.toLowerCase()));
+        if (e.key === "ArrowDown") { e.preventDefault(); cmdActive = (cmdActive + 1) % filtered.length; renderCmd(cmdInput.value); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); cmdActive = (cmdActive - 1 + filtered.length) % filtered.length; renderCmd(cmdInput.value); }
+        else if (e.key === "Enter") { e.preventDefault(); runCmd(filtered[cmdActive]); }
+        else if (e.key === "Escape") { closeCmd(); }
+      });
+      cmdOverlay.addEventListener("click", (e) => { if (e.target === cmdOverlay) closeCmd(); });
+      document.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openCmd(); }
+      });
+
+      // Kick off
+      loadData();
     </script>
   </body>
 </html>
