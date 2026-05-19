@@ -19,7 +19,9 @@ concurrency:
 jobs:
   update:
     # Skip if the push was the bot's own README commit (avoids loop).
-    if: github.event.head_commit.author.email != 'bot@hireic.dev' || !startsWith(github.event.head_commit.message, 'chore: update README counts')
+    if: >-
+      github.event.head_commit.author.email != 'bot@hireic.dev' ||
+      !startsWith(github.event.head_commit.message, 'chore: update README counts')
     runs-on: ubuntu-latest
 
     steps:

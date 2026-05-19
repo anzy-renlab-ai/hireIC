@@ -8,3 +8,4 @@ coverage/
 .vitest-cache/
 .env
 .env.local
+.gstack/

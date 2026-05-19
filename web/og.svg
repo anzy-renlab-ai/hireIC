@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <style>
+      .bg { fill: #fafaf7; }
+      .fg { fill: #1a1a1a; }
+      .accent { fill: #c8472f; }
+      .muted { fill: #6b6b6b; }
+      .h1 { font: 700 130px -apple-system, "PingFang SC", system-ui, sans-serif; letter-spacing: -0.03em; }
+      .tag { font: 400 44px -apple-system, "PingFang SC", system-ui, sans-serif; letter-spacing: -0.005em; }
+      .meta { font: 500 26px -apple-system, "PingFang SC", system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; }
+      .rule { stroke: #e3e0d8; stroke-width: 2; }
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="630"/>
+  <g transform="translate(96, 200)">
+    <text class="h1 fg" x="0" y="0">hire<tspan class="accent">IC</tspan></text>
+    <text class="tag fg" x="0" y="100">cc-fluent IC. 用 agent 干活. 招聘. 协议优先.</text>
+    <text class="tag muted" x="0" y="155">A protocol-first recruiting channel for cc-fluent ICs.</text>
+  </g>
+  <line class="rule" x1="96" y1="500" x2="1104" y2="500"/>
+  <text class="meta muted" x="96" y="555">hire.renlab.ai</text>
+  <text class="meta muted" x="1104" y="555" text-anchor="end">github.com/anzy-renlab-ai/hireIC</text>
+</svg>
