@@ -6,7 +6,7 @@ Static landing page at [hire.renlab.ai](https://hire.renlab.ai).
 - Auto light/dark via `prefers-color-scheme`
 - Live counts: GitHub Contents API + 5min localStorage cache
 - Bilingual zh primary, en companion
-- One config line at bottom of `<script>`: `const GH_REPO = "baidu/hireIC";` — change after forking
+- One config line at bottom of `<script>`: `const GH_REPO = "anzy-renlab-ai/hireIC";` — change after forking
 
 ## Local preview
 

@@ -7,7 +7,7 @@ import type { FieldError, PIIHit } from "./issue-parser.js";
 const TRANSPARENCY_HEADER = "(自动校验, 不是 founder 本人)";
 const RETRY_FOOTER =
   "修改完点 **Edit** 重提交, 校验会重跑. 不限次数 🙏 · Edit and re-submit, the bot will re-validate. No retry limit.";
-const SCHEMA_LINK = "字段说明: [SCHEMA.md](https://github.com/baidu/hireIC/blob/main/SCHEMA.md)";
+const SCHEMA_LINK = "字段说明: [SCHEMA.md](https://github.com/anzy-renlab-ai/hireIC/blob/main/SCHEMA.md)";
 
 function bullet(err: FieldError): string {
   const lead =

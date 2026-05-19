@@ -11,7 +11,7 @@ body:
         - 这是公开 issue, **不要填手机号 / 身份证号 / 真实姓名**. 用 GitHub username + 邮箱即可.
         - 在职大厂员工怕暴露? **`contact_mode` 选 `hidden`**, hireIC 会给你一个一次性 relay 邮箱.
         - 提交后 1 分钟内会收到自动校验评论. 不限次数修改.
-        - 字段说明: [SCHEMA.md](https://github.com/baidu/hireIC/blob/main/SCHEMA.md)
+        - 字段说明: [SCHEMA.md](https://github.com/anzy-renlab-ai/hireIC/blob/main/SCHEMA.md)
 
   - type: input
     id: github_username

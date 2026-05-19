@@ -1,16 +1,16 @@
 # hireic-mcp
 
-MCP server for [hireIC](https://github.com/baidu/hireIC). Exposes `list_jobs`
+MCP server for [hireIC](https://github.com/anzy-renlab-ai/hireIC). Exposes `list_jobs`
 and `list_candidates` from any hireIC-compatible GitHub repository.
 
 ## Install / Run
 
 ```bash
 # Direct invocation (no install)
-npx hireic-mcp --owner baidu --repo hireIC
+npx hireic-mcp --owner anzy-renlab-ai --repo hireIC
 
 # Or via env vars
-HIREIC_OWNER=baidu HIREIC_REPO=hireIC npx hireic-mcp
+HIREIC_OWNER=anzy-renlab-ai HIREIC_REPO=hireIC npx hireic-mcp
 ```
 
 Add to your Claude Desktop / Cursor / other MCP-aware editor:
@@ -20,7 +20,7 @@ Add to your Claude Desktop / Cursor / other MCP-aware editor:
   "mcpServers": {
     "hireic": {
       "command": "npx",
-      "args": ["hireic-mcp", "--owner", "baidu", "--repo", "hireIC"]
+      "args": ["hireic-mcp", "--owner", "anzy-renlab-ai", "--repo", "hireIC"]
     }
   }
 }
@@ -40,8 +40,8 @@ npx hireic-mcp --owner your-org --repo your-hireIC-fork --ref main
   `contact_value: "relay-pending"` or `relay-<github>@hireic.<domain>`;
   do not attempt to derive real contact info.
 
-Output is JSON conforming to [agent-jobs.schema.json](https://github.com/baidu/hireIC/blob/main/schemas/agent-jobs.schema.json)
-and [agent-cv.schema.json](https://github.com/baidu/hireIC/blob/main/schemas/agent-cv.schema.json)
+Output is JSON conforming to [agent-jobs.schema.json](https://github.com/anzy-renlab-ai/hireIC/blob/main/schemas/agent-jobs.schema.json)
+and [agent-cv.schema.json](https://github.com/anzy-renlab-ai/hireIC/blob/main/schemas/agent-cv.schema.json)
 respectively.
 
 ## Auth
@@ -52,7 +52,7 @@ sporadic use, hits the limit if used heavily.
 For higher limits, supply a token:
 
 ```bash
-npx hireic-mcp --owner baidu --repo hireIC --token ghp_xxx
+npx hireic-mcp --owner anzy-renlab-ai --repo hireIC --token ghp_xxx
 # or
 HIREIC_TOKEN=ghp_xxx npx hireic-mcp ...
 ```
