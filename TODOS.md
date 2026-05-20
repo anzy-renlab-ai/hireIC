@@ -117,3 +117,23 @@ Now P1: SCHEMA.md MUST carry `schema_version: 0.1` before first profile lands.
 - TODOs P2 items have specific trigger conditions, not deadlines. Don't context-switch unless triggered.
 - This file is committed to the repo so co-maintainers (when they exist) can see what's deferred.
 - Items get GitHub Issues when they become P1 (actively worked on).
+
+## CF Email Routing for hidden mode (deferred — needs DNS decision)
+
+**Blocker**: renlab.ai apex MX → Aliyun (mx1.qiye.aliyun.com, currently delivering
+anzy@renlab.ai). Enabling Cloudflare Email Routing on the apex would conflict
+with the existing Aliyun mailbox.
+
+**Options**:
+1. Move Aliyun mail to a sub: `anzy@mail.renlab.ai`, use apex for CF routing.
+   Risky — touches a live mailbox.
+2. Use a new dedicated subdomain like `hireic.renlab.ai` with its own MX records
+   pointing at Cloudflare. Requires a Cloudflare zone delegation or NS subdomain
+   approach. Lower risk to existing mail; cleaner separation.
+3. Use ImprovMX (free, 25 aliases) on a subdomain like `relay.renlab.ai`.
+4. Manual relay for v1: founder reads the candidate issue, contacts the candidate
+   directly when a recruiter expresses interest. Zero infra.
+
+**Recommendation**: option 2 (`hireic.renlab.ai` subdomain) when the first
+hidden-mode candidate lands. Until then, candidates set `contact_value:
+relay-pending` and the founder handles introductions manually.

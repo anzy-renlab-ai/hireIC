@@ -208,6 +208,23 @@
       .job-row:hover .arrow { color: var(--accent); }
       .job-row .tagstrip { margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; }
       .job-row .tagstrip .t { font-size: 10.5px; color: var(--fg-3); padding: 0 4px; border: 1px solid var(--line-2); }
+      /* candidate cards */
+      .cand-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0; border-bottom: 1px solid var(--line); }
+      .cand-card { display: block; padding: 16px 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--fg); cursor: pointer; transition: background 0.08s; position: relative; }
+      .cand-card:hover { background: var(--bg-1); }
+      .cand-card .row1 { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+      .cand-card .uname { font-weight: 600; font-size: 14px; color: var(--fg); }
+      .cand-card .uname::before { content: "@"; color: var(--fg-3); margin-right: 1px; }
+      .cand-card .months { font-size: 11px; color: var(--accent); margin-left: auto; }
+      .cand-card .bio { font-size: 12.5px; color: var(--fg-2); margin: 6px 0; line-height: 1.45; max-height: 2.9em; overflow: hidden; text-overflow: ellipsis; }
+      .cand-card .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 11px; }
+      .cand-card .meta span { padding: 1px 6px; border: 1px solid var(--line-2); color: var(--fg-3); }
+      .cand-card .meta .lf { border-color: var(--accent); color: var(--accent); }
+      .cand-card .meta .hidden-tag { border-color: var(--warn); color: var(--warn); }
+      .cand-card .ev { font-size: 11px; color: var(--fg-3); margin-top: 6px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+      .cand-card .ev::before { content: "evidence: "; color: var(--fg-3); }
+      .cand-card .ev a { color: var(--accent); }
+      .cand-card.hidden-filtered { display: none; }
       .empty-state { padding: 60px 24px 80px; text-align: center; color: var(--fg-3); font-size: 13px; border-bottom: 1px solid var(--line); }
       .empty-state .big { font-family: var(--display); font-size: 18px; color: var(--fg-2); margin-bottom: 12px; }
       .empty-state .hint { margin-top: 16px; color: var(--fg-3); }
@@ -303,6 +320,7 @@
         <nav class="nav">
           <a class="active">~/home</a>
           <a id="nav-jobs" href="#openings">/openings</a>
+          <a id="nav-candidates" href="#candidates">/candidates</a>
           <a id="nav-apply" href="#">/apply</a>
         </nav>
         <div class="topbar-right">
@@ -473,6 +491,28 @@
           </div>
         </section>
 
+        <section id="candidates">
+          <div class="board-head">
+            <div class="title">
+              <h2>$ ls ./candidates</h2>
+              <span class="count" id="candidates-count-label">— loading</span>
+            </div>
+            <a class="cta ghost" id="cand-add" href="#">./submit-profile →</a>
+          </div>
+          <div class="board-filters" id="cand-filters" style="display: none;">
+            <button class="chip active" data-filter="all">all <span class="count" id="cnt-all"></span></button>
+            <button class="chip" data-filter="full-time">full-time <span class="count" id="cnt-ft"></span></button>
+            <button class="chip" data-filter="contract">contract <span class="count" id="cnt-ct"></span></button>
+            <button class="chip" data-filter="open-to-talk">open-to-talk <span class="count" id="cnt-ot"></span></button>
+            <span style="margin-left: auto; color: var(--fg-3); font-size: 12px; align-self: center;">click card → GitHub profile</span>
+          </div>
+          <div id="cand-container">
+            <div class="empty-state">
+              <div class="big">scanning candidates…</div>
+            </div>
+          </div>
+        </section>
+
         <section class="footer">
           <div>
             <div class="logo-big">hire<span style="color: var(--accent);">IC</span></div>
@@ -639,26 +679,37 @@
         }
 
         // Step 2: best-effort GitHub API refresh for fresher counts.
+        // Snapshot (/data.json) is the source of truth for full fields (bio,
+        // contact, evidence). Live API only has filenames — never use it to
+        // replace snapshot details. We only escalate to live if snapshot is
+        // missing entirely (dev / not-deployed scenario).
         try {
           const [jobsRaw, candsRaw] = await Promise.all([ghFetch("jobs"), ghFetch("candidates")]);
           const jobsMd = countMd(jobsRaw);
           const candsMd = countMd(candsRaw);
-          const ghData = {
-            generated_at: new Date().toISOString(),
-            repo: GH_REPO,
-            counts: { jobs: jobsMd.length, candidates: candsMd.length, jobs_closed: 0 },
-            jobs: jobsMd.map((f, i) => ({
-              name: f.name,
-              idx: String(i + 1).padStart(2, "0"),
-              download_url: f.download_url,
-            })),
-            candidates: candsMd.map(f => ({ name: f.name })),
-          };
-          // Only re-render if counts differ from current (avoid layout shift on same data)
-          if (!data || data.counts.jobs !== ghData.counts.jobs || data.counts.candidates !== ghData.counts.candidates) {
+          const liveJobs = jobsMd.length;
+          const liveCands = candsMd.length;
+
+          if (!data) {
+            // No snapshot — fall back to live rendering (limited fields).
+            const ghData = {
+              generated_at: new Date().toISOString(),
+              repo: GH_REPO,
+              counts: { jobs: liveJobs, candidates: liveCands, jobs_closed: 0 },
+              jobs: jobsMd.map((f, i) => ({ name: f.name, idx: String(i + 1).padStart(2, "0"), download_url: f.download_url })),
+              candidates: candsMd.map(f => ({ name: f.name, github_username: f.name.replace(/\.md$/, ""), profile_url: `https://github.com/${GH_REPO}/blob/main/candidates/${f.name}` })),
+            };
             renderFromData(ghData, "live");
-            // For live data, fetch each job's frontmatter to enrich the table
             await enrichLiveJobs(ghData.jobs);
+            return;
+          }
+
+          // Snapshot present — only update count badges if live differs (deploy
+          // race: data.json regenerated more recently than its serving cache).
+          if (liveJobs !== data.counts.jobs || liveCands !== data.counts.candidates) {
+            const drift = `<span style='color: var(--warn); font-size: 11px;'>· live: ${liveJobs}j ${liveCands}c (snapshot may lag)</span>`;
+            const o = document.getElementById("openings-count");
+            if (o && !o.innerHTML.includes("live:")) o.innerHTML += " " + drift;
           }
         } catch {
           // Silent — build-time data.json already on screen.
@@ -693,6 +744,98 @@
         renderCounts(data.counts.jobs, data.counts.candidates, source);
         renderTermOpenings(data.jobs);
         renderJobsTable(data.jobs);
+        renderCandidates(data.candidates || [], source);
+      }
+
+      function renderCandidates(candidates, source) {
+        const container = document.getElementById("cand-container");
+        const label = document.getElementById("candidates-count-label");
+        const filters = document.getElementById("cand-filters");
+        document.getElementById("cand-add").href = APPLY_CANDIDATE_URL;
+
+        label.innerHTML = `— <b>${candidates.length}</b> total${source === "build" ? " <span style='color: var(--fg-3);'>(snapshot)</span>" : ""}`;
+
+        if (candidates.length === 0) {
+          filters.style.display = "none";
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="big">// no candidates yet</div>
+              <div>be the first cc-fluent IC to publish a profile.</div>
+              <div class="hint">submit via Issue Form: <code>${APPLY_CANDIDATE_URL.replace('https://github.com/', '')}</code></div>
+              <div style="margin-top: 20px;">
+                <a class="cta" href="${APPLY_CANDIDATE_URL}">./submit-profile.sh →</a>
+              </div>
+            </div>`;
+          return;
+        }
+
+        // Filter counters
+        filters.style.display = "flex";
+        const cnt = {
+          all: candidates.length,
+          ft: candidates.filter(c => c.looking_for === "full-time").length,
+          ct: candidates.filter(c => c.looking_for === "contract").length,
+          ot: candidates.filter(c => c.looking_for === "open-to-talk").length,
+        };
+        document.getElementById("cnt-all").textContent = `(${cnt.all})`;
+        document.getElementById("cnt-ft").textContent = `(${cnt.ft})`;
+        document.getElementById("cnt-ct").textContent = `(${cnt.ct})`;
+        document.getElementById("cnt-ot").textContent = `(${cnt.ot})`;
+
+        const grid = document.createElement("div");
+        grid.className = "cand-grid";
+        grid.innerHTML = candidates.map(c => {
+          const lf = c.looking_for ? `<span class="lf">${escapeHtml(c.looking_for)}</span>` : "";
+          const loc = c.location ? `<span>${escapeHtml(c.location)}</span>` : "";
+          const sal = c.salary_range_rmb ? `<span>${escapeHtml(c.salary_range_rmb)}</span>` : "";
+          const stack = c.agent_stack ? `<span>${escapeHtml(c.agent_stack.slice(0, 32))}</span>` : "";
+          const hid = c.contact_mode === "hidden" ? `<span class="hidden-tag">hidden contact</span>` : "";
+          // Nested <a> not allowed in HTML — render evidence as a separate anchor
+          // and use a div for the card with JS-based navigation.
+          const ev = c.evidence_url ? `<div class="ev"><a href="${escapeHtml(c.evidence_url)}" target="_blank" rel="noopener" data-stop="1">${escapeHtml(c.evidence_url.replace(/^https?:\/\//, "").slice(0, 50))}…</a></div>` : "";
+          const bio = c.bio_zh || c.bio_en || "";
+          const lfData = c.looking_for || "";
+          return `
+            <div class="cand-card" data-href="${escapeHtml(c.profile_url)}" data-lf="${escapeHtml(lfData)}" role="link" tabindex="0">
+              <div class="row1">
+                <span class="uname">${escapeHtml(c.github_username)}</span>
+                <span class="months">${c.cc_experience_months ?? "—"} mo</span>
+              </div>
+              ${bio ? `<div class="bio">${escapeHtml(bio)}</div>` : ""}
+              <div class="meta">${lf}${loc}${sal}${stack}${hid}</div>
+              ${ev}
+            </div>`;
+        }).join("");
+        container.innerHTML = "";
+        container.appendChild(grid);
+
+        // Wire click + Enter on cards (div role=link)
+        grid.querySelectorAll(".cand-card").forEach(card => {
+          card.addEventListener("click", (e) => {
+            if (e.target.closest("a[data-stop]")) return; // let inner evidence link fire
+            const href = card.getAttribute("data-href");
+            if (href) window.open(href, "_blank", "noopener");
+          });
+          card.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              const href = card.getAttribute("data-href");
+              if (href) window.open(href, "_blank", "noopener");
+            }
+          });
+        });
+
+        // Wire up filter chips
+        document.querySelectorAll("#cand-filters .chip").forEach(chip => {
+          chip.addEventListener("click", () => {
+            const f = chip.dataset.filter;
+            document.querySelectorAll("#cand-filters .chip").forEach(c => c.classList.toggle("active", c === chip));
+            document.querySelectorAll(".cand-card").forEach(card => {
+              const cardLf = card.dataset.lf;
+              card.classList.toggle("hidden-filtered", f !== "all" && cardLf !== f);
+            });
+          });
+        });
       }
 
       function renderUnknown() {

@@ -76,10 +76,24 @@ const data = {
     employment_type: j.frontmatter.employment_type || "—",
     apply_url: j.frontmatter.apply_url || `https://github.com/anzy-renlab-ai/hireIC/blob/main/jobs/${j.name}`,
   })),
-  candidates: candidatesAll.map((c) => ({
+  candidates: candidatesAll.map((c, i) => ({
     name: c.name,
+    idx: String(i + 1).padStart(2, "0"),
     github_username: c.frontmatter.github_username || c.name.replace(/\.md$/, ""),
     cc_experience_months: c.frontmatter.cc_experience_months || null,
+    evidence_url: c.frontmatter.evidence_url || null,
+    contact_mode: c.frontmatter.contact_mode || "public",
+    contact_value: c.frontmatter.contact_value || null,
+    bio_zh: c.frontmatter.bio_zh || null,
+    bio_en: c.frontmatter.bio_en || null,
+    looking_for: c.frontmatter.looking_for || null,
+    salary_range_rmb: c.frontmatter.salary_range_rmb || null,
+    location: c.frontmatter.location || null,
+    agent_stack: c.frontmatter.agent_stack || null,
+    referrer_github: c.frontmatter.referrer_github || null,
+    referrer_evidence_pr_url: c.frontmatter.referrer_evidence_pr_url || null,
+    available_from: c.frontmatter.available_from || null,
+    profile_url: `https://github.com/anzy-renlab-ai/hireIC/blob/main/candidates/${c.name}`,
   })),
 };
 
