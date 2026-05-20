@@ -854,6 +854,17 @@
         document.getElementById("status-jobs").textContent = "—";
         document.getElementById("openings-count").innerHTML = "— <span class='dim'>(loading…)</span>";
         document.getElementById("topbar-open-tag").textContent = "loading…";
+        // Replace the initial "scanning…" placeholder with a clear unreachable
+        // message so the user isn't left looking at a spinner forever if both
+        // /data.json AND the GitHub API fail (e.g. IP rate-limited + malformed
+        // snapshot).
+        const candFallback = `<div class="empty-state"><div class="big">// can't reach registry right now</div><div>data.json malformed or network blocked. <a class="link" href="https://github.com/anzy-renlab-ai/hireIC/tree/main/candidates">browse directly →</a></div></div>`;
+        const cc = document.getElementById("cand-container");
+        if (cc) cc.innerHTML = candFallback;
+        const jc = document.getElementById("jobs-container");
+        if (jc) jc.innerHTML = candFallback.replace("registry", "openings").replace("/candidates", "/jobs");
+        const cl = document.getElementById("candidates-count-label");
+        if (cl) cl.innerHTML = "— <span class='dim'>(unreachable)</span>";
       }
 
       function renderCounts(jobs, candidates, source) {
