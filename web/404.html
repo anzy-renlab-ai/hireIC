@@ -43,15 +43,18 @@
       .links a:hover { color: var(--accent); text-decoration: none; }
       .links a .arr { color: var(--fg-3); }
       .links a:hover .arr { color: var(--accent); }
+      .skip-link { position: absolute; top: -40px; left: 0; padding: 8px 12px; background: var(--accent); color: #06120a; font-weight: 700; z-index: 99999; transition: top 0.12s; }
+      .skip-link:focus { top: 0; outline: none; }
     </style>
   </head>
   <body>
+    <a href="#card-main" class="skip-link">Skip to main content</a>
     <div class="topbar">
       <span class="dot"></span><b>hire</b><span class="accent">IC</span><span class="sub">· hire.renlab.ai</span>
     </div>
 
-    <div class="card">
-      <h1><span class="num">404</span>path not found</h1>
+    <div class="card" id="card-main">
+      <h1><span class="num">404</span> path not found</h1>
       <div class="row"><span class="prompt">guest</span><span class="dim">@</span><span class="user">hireIC</span><span class="dim">:~$ </span><span>cat <span class="err" id="path">/path</span></span></div>
       <div class="row"><span class="err">cat: no such file or directory</span></div>
       <div class="row"><span class="prompt">guest</span><span class="dim">@</span><span class="user">hireIC</span><span class="dim">:~$ </span><span>cd ~</span></div>
