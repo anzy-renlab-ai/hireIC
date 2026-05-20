@@ -32,7 +32,7 @@ export interface FetchSuccess {
 }
 
 export interface FetchFailure {
-  status: 404 | 429 | 500;
+  status: 401 | 404 | 429 | 500;
   body: null;
 }
 
@@ -40,7 +40,7 @@ export type FetchResult = FetchSuccess | FetchFailure;
 
 export type Fetcher = (path: string) => Promise<FetchResult>;
 
-export type ErrorKind = "not_found" | "rate_limited" | "network" | "parse" | "schema_invalid" | "unknown";
+export type ErrorKind = "not_found" | "rate_limited" | "unauthorized" | "network" | "parse" | "schema_invalid" | "unknown";
 
 export interface HandlerError {
   kind: ErrorKind;
@@ -143,6 +143,9 @@ async function safeFetch(
     const result = await fetcher(path);
     if (result.status === 200) {
       return { ok: true, files: result.body };
+    }
+    if (result.status === 401) {
+      return { ok: false, error: { kind: "unauthorized", message: "GitHub rejected the token. Check --token / HIREIC_TOKEN (PAT needs `public_repo` scope)." } };
     }
     if (result.status === 404) {
       return { ok: false, error: { kind: "not_found", message: `${path} not found` } };

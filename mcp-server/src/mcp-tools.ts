@@ -4,6 +4,7 @@ const TOP_LEVEL_ERROR_KINDS = new Set<HandlerError["kind"]>([
   "network",
   "not_found",
   "rate_limited",
+  "unauthorized",
   "unknown",
 ]);
 

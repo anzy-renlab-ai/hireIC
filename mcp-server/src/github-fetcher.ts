@@ -69,8 +69,18 @@ export function makeGithubFetcher(options: GithubFetcherOptions): Fetcher {
       return result;
     }
 
+    if (resp.status === 401) {
+      // Token rejected by GitHub. Distinct from 403/rate-limit and 404/missing.
+      return { status: 401, body: null };
+    }
+
     if (resp.status === 403 && resp.headers.get("X-RateLimit-Remaining") === "0") {
       return { status: 429, body: null };
+    }
+
+    if (resp.status === 403) {
+      // Non-rate-limit 403 (e.g. token lacks scope) — treat as auth failure.
+      return { status: 401, body: null };
     }
 
     if (resp.status === 404) {
