@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>404 — hireIC</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0c0a'/%3E%3Ctext x='4' y='22' font-family='ui-monospace,monospace' font-size='20' font-weight='700' fill='%236cf28a'%3E$_%3C/text%3E%3C/svg%3E" />
+    <style>
+      :root {
+        --bg: #0a0c0a;
+        --bg-1: #0f1310;
+        --fg: #cfe3d2;
+        --fg-2: #8aa392;
+        --fg-3: #7d9080;
+        --accent: #6cf28a;
+        --line: #1f2622;
+        --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 14px; line-height: 1.5; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+      body { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 28px; background-image: radial-gradient(900px 500px at 50% 0%, rgba(108,242,138,0.05), transparent 60%); }
+      .topbar { position: fixed; top: 0; left: 0; right: 0; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--bg-1); display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+      .topbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+      .topbar b { color: var(--fg); }
+      .topbar .accent { color: var(--accent); font-weight: 700; }
+      .topbar .sub { color: var(--fg-2); margin-left: 8px; }
+      .card { width: min(560px, 92vw); border: 1px solid var(--line); padding: 32px; background: var(--bg-1); }
+      h1 { margin: 0 0 18px; font-family: var(--mono); font-size: 22px; letter-spacing: -0.01em; }
+      h1 .num { color: var(--accent); margin-right: 12px; }
+      p { color: var(--fg-2); margin: 0 0 12px; font-size: 13.5px; }
+      .row { margin: 6px 0; color: var(--fg-2); font-size: 13px; }
+      .row .prompt { color: var(--accent); }
+      .row .user { color: #7df0ff; }
+      .row .dim { color: var(--fg-3); }
+      .row .err { color: #ff6b6b; }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      .cta { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--accent); color: #06120a; font-weight: 700; border: 1px solid var(--accent); margin-top: 16px; }
+      .cta:hover { background: transparent; color: var(--accent); text-decoration: none; }
+      .links { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--line); }
+      .links a { display: flex; justify-content: space-between; padding: 4px 0; color: var(--fg-2); }
+      .links a:hover { color: var(--accent); text-decoration: none; }
+      .links a .arr { color: var(--fg-3); }
+      .links a:hover .arr { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <span class="dot"></span><b>hire</b><span class="accent">IC</span><span class="sub">· hire.renlab.ai</span>
+    </div>
+
+    <div class="card">
+      <h1><span class="num">404</span>path not found</h1>
+      <div class="row"><span class="prompt">guest</span><span class="dim">@</span><span class="user">hireIC</span><span class="dim">:~$ </span><span>cat <span class="err" id="path">/path</span></span></div>
+      <div class="row"><span class="err">cat: no such file or directory</span></div>
+      <div class="row"><span class="prompt">guest</span><span class="dim">@</span><span class="user">hireIC</span><span class="dim">:~$ </span><span>cd ~</span></div>
+      <p style="margin-top: 18px">URL you tried is not part of hireIC. Three places to land:</p>
+
+      <a class="cta" href="/">./back-home →</a>
+
+      <div class="links">
+        <a href="https://github.com/anzy-renlab-ai/hireIC">github.com/anzy-renlab-ai/hireIC <span class="arr">→</span></a>
+        <a href="https://github.com/anzy-renlab-ai/hireIC/issues/new?template=candidate.yml">submit candidate profile <span class="arr">→</span></a>
+        <a href="https://github.com/anzy-renlab-ai/hireIC/issues/new?template=job.yml">submit job posting <span class="arr">→</span></a>
+        <a href="/llms.txt">llms.txt (agent manifest) <span class="arr">→</span></a>
+      </div>
+    </div>
+
+    <script>
+      // Surface the actual failing path in the terminal-row
+      try { document.getElementById("path").textContent = location.pathname || "/"; } catch {}
+    </script>
+  </body>
+</html>
