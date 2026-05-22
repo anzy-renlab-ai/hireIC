@@ -135,7 +135,10 @@ JSON Schema (`schemas/*.schema.json`) 是 canonical. SCHEMA.md (本文档) 和 I
 
 - `cc_experience_months` 超过 60 (~5 年, 早于任何 agent 编码工具问世) → 提醒对照 evidence git 历史.
 - `github_username` 在 GitHub 查无此人 (定性 404) → 提醒可能笔误或冒用.
-- `evidence_url` 是死链 (404/410) → 提醒证据无法核验.
 
 网络检查一律 **fail-open**: 限流/超时/5xx 不报警, 只在定性 404 才提示, 绝不因网络抖动
 误拒真候选人. 真伪的最终判断仍在 founder 和下游消费 agent.
+
+**安全约束**: validator 只请求固定可信 host (`api.github.com`), **绝不**在服务端抓取
+用户提供的 URL (如 `evidence_url`)——那是 SSRF, 攻击者可让 CI runner 去打内网/元数据
+端点. `evidence_url` 的可达性由 founder 在 `/approve` 时人工过目, 不做自动抓取.

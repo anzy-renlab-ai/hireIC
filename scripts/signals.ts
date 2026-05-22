@@ -3,6 +3,13 @@
 // Every check is FAIL-OPEN: a flaky request, timeout, or 5xx yields NO warning.
 // We only flag definitive negatives (404) so a real candidate is never
 // rejected — or even nagged — because GitHub or an external host hiccuped.
+//
+// SECURITY: we ONLY ever fetch a fixed, trusted host (api.github.com). We do
+// NOT fetch user-supplied URLs (e.g. evidence_url) server-side — that would be
+// SSRF: an attacker could point evidence_url at internal/metadata endpoints and
+// make the CI runner request them. Dead-link detection on evidence_url is not
+// worth opening that surface (and wouldn't catch fabricated-but-live evidence
+// anyway). The founder eyeballs evidence_url at /approve time instead.
 
 import type { CandidatePayload, FieldWarning } from "./issue-parser.js";
 
@@ -11,7 +18,9 @@ export interface SignalDeps {
   token?: string;
 }
 
-const GONE_STATUSES = new Set([404, 410]);
+// Bound every request so a slow/hung trusted host can't stall the validation
+// workflow (which is serialized per-issue via a concurrency group).
+const REQUEST_TIMEOUT_MS = 5000;
 
 export async function gatherNetworkWarnings(
   payload: CandidatePayload,
@@ -20,7 +29,8 @@ export async function gatherNetworkWarnings(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const warnings: FieldWarning[] = [];
 
-  // 1. Does the GitHub username actually exist? Definitive 404 → flag.
+  // Does the GitHub username actually exist? Definitive 404 → flag.
+  // Fixed host + regex-validated, percent-encoded username → no SSRF surface.
   try {
     const headers: Record<string, string> = {
       Accept: "application/vnd.github+json",
@@ -29,7 +39,11 @@ export async function gatherNetworkWarnings(
     if (deps.token) headers.Authorization = `Bearer ${deps.token}`;
     const resp = await fetchImpl(
       `https://api.github.com/users/${encodeURIComponent(payload.github_username)}`,
-      { headers },
+      {
+        headers,
+        redirect: "error", // don't chase redirects off the trusted host
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      },
     );
     if (resp.status === 404) {
       warnings.push({
@@ -39,22 +53,7 @@ export async function gatherNetworkWarnings(
       });
     }
   } catch {
-    // fail-open: rate-limit / network error → no signal
-  }
-
-  // 2. Is the evidence URL a dead link? Only 404/410 (definitely gone) → flag.
-  //    5xx, timeouts, throws are treated as transient → silent.
-  try {
-    const resp = await fetchImpl(payload.evidence_url, { method: "HEAD" });
-    if (GONE_STATUSES.has(resp.status)) {
-      warnings.push({
-        field: "evidence_url",
-        kind: "unreachable",
-        message: `evidence_url 打不开 (HTTP ${resp.status}). 证据链接是死链, founder 无法核验 cc-fluency.`,
-      });
-    }
-  } catch {
-    // fail-open
+    // fail-open: rate-limit / timeout / network error → no signal
   }
 
   return warnings;
