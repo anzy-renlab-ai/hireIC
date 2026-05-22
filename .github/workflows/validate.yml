@@ -37,6 +37,10 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_LABELS: ${{ toJSON(github.event.issue.labels) }}
           OUT_DIR: ${{ runner.temp }}
+          # Lifts the GitHub API rate limit (60→5000/hr) for the advisory
+          # username-existence check. Read-only; absence just falls back to
+          # unauthenticated requests (checks still fail-open).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npx tsx scripts/validate-issue.ts
           echo "outcome=$(cat $RUNNER_TEMP/validate.outcome.txt)" >> $GITHUB_OUTPUT

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseIssueBody, validateCandidatePayload, validateJobPayload, detectPII } from "../../scripts/issue-parser.js";
+import { parseIssueBody, validateCandidatePayload, validateJobPayload, detectPII, candidateWarnings } from "../../scripts/issue-parser.js";
 
 const candidateBody = `### GitHub username
 
@@ -239,5 +239,36 @@ describe("detectPII", () => {
   it("returns multiple hits when text has both mobile and ID card", () => {
     const hits = detectPII("电话 13812345678 身份证 110101199001011234");
     expect(hits.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("candidateWarnings — advisory, never blocking", () => {
+  const base = {
+    schema_version: "0.1" as const,
+    github_username: "alicelu",
+    cc_experience_months: 12,
+    evidence_url: "https://github.com/alicelu/proj/pull/42",
+    contact_mode: "public" as const,
+    contact_value: "alice@example.com",
+  };
+
+  it("returns no warnings for a plausible candidate", () => {
+    const w = candidateWarnings(base);
+    expect(w).toEqual([]);
+  });
+
+  it("warns when cc_experience_months exceeds plausible ceiling (60)", () => {
+    const w = candidateWarnings({ ...base, cc_experience_months: 600 });
+    expect(w).toHaveLength(1);
+    expect(w[0]!.field).toBe("cc_experience_months");
+    expect(w[0]!.kind).toBe("implausible");
+  });
+
+  it("does not warn at the ceiling boundary (60)", () => {
+    expect(candidateWarnings({ ...base, cc_experience_months: 60 })).toEqual([]);
+  });
+
+  it("warns just past the ceiling (61)", () => {
+    expect(candidateWarnings({ ...base, cc_experience_months: 61 })).toHaveLength(1);
   });
 });

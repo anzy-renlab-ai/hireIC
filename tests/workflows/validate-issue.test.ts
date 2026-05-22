@@ -128,3 +128,37 @@ describe("runValidation — hidden mode does not leak", () => {
     expect(r.commentMarkdown).not.toContain("alice@example.com");
   });
 });
+
+describe("runValidation — advisory warnings (never flip outcome)", () => {
+  const cc600Body = goodCandidateBody.replace(
+    "### cc 经验 (月数 / months)\n\n12",
+    "### cc 经验 (月数 / months)\n\n600",
+  );
+
+  it("still passes but surfaces a ⚠️ advisory when cc months is implausible", () => {
+    const r = runValidation({ body: cc600Body, labels: ["candidate"] });
+    expect(r.outcome).toBe("pass");
+    expect(r.applyLabel).toBe("pending-review");
+    expect(r.warnings.length).toBeGreaterThan(0);
+    expect(r.commentMarkdown).toContain("⚠️");
+  });
+
+  it("clean candidate has no advisory section", () => {
+    const r = runValidation({ body: goodCandidateBody, labels: ["candidate"] });
+    expect(r.warnings).toEqual([]);
+    expect(r.commentMarkdown).not.toContain("⚠️");
+  });
+
+  it("merges injected network warnings into the success comment", () => {
+    const r = runValidation({
+      body: goodCandidateBody,
+      labels: ["candidate"],
+      extraWarnings: [
+        { field: "github_username", kind: "not_found", message: "GitHub 上查无此用户名." },
+      ],
+    });
+    expect(r.outcome).toBe("pass");
+    expect(r.commentMarkdown).toContain("⚠️");
+    expect(r.commentMarkdown).toContain("查无此用户名");
+  });
+});

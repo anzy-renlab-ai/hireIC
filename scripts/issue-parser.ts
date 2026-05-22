@@ -39,6 +39,23 @@ export type ValidatePayloadResult<T> =
   | { ok: true; payload: T }
   | { ok: false; errors: FieldError[] };
 
+// Advisory signals on an *already-valid* payload. Never block submission;
+// surfaced to the founder so /approve isn't blind. Machine validation only
+// checks format — these flag claims that smell off (self-reported numbers,
+// fabricated identity) without false-rejecting real candidates.
+export type FieldWarningKind = "implausible" | "not_found" | "unreachable";
+
+export interface FieldWarning {
+  field: string;
+  kind: FieldWarningKind;
+  message: string;
+}
+
+// Agent-assisted coding tools (Copilot tech-preview 2021 being the earliest)
+// haven't existed 5 years. A claim above this ceiling is implausible as a
+// "daily driver" duration — flag for human cross-check, don't reject.
+export const CC_PLAUSIBLE_CEILING_MONTHS = 60;
+
 export interface CandidatePayload {
   schema_version: "0.1";
   github_username: string;
@@ -342,6 +359,20 @@ const MOBILE_CN_RE = /(?<![\w/?=&-])1[3-9]\d{9}(?![\w/?=&-])/g;
 // Must not match inside a URL.
 const ID_CARD_18_RE = /(?<![\w/?=&-])\d{17}[\dXx](?![\w/?=&-])/g;
 const ID_CARD_15_RE = /(?<![\w/?=&-])\d{15}(?![\w/?=&-])/g;
+
+// Pure (no network) advisory checks on a validated candidate payload.
+export function candidateWarnings(payload: CandidatePayload): FieldWarning[] {
+  const warnings: FieldWarning[] = [];
+  if (payload.cc_experience_months > CC_PLAUSIBLE_CEILING_MONTHS) {
+    const years = Math.round(payload.cc_experience_months / 12);
+    warnings.push({
+      field: "cc_experience_months",
+      kind: "implausible",
+      message: `自报 ${payload.cc_experience_months} 个月 (~${years} 年). agent 辅助编码工具问世不足 5 年, 这个数字作为"日常 driver 时长"不太可能. 请对照 evidence_url 的 git 历史核实.`,
+    });
+  }
+  return warnings;
+}
 
 export function detectPII(text: string): PIIHit[] {
   const hits: PIIHit[] = [];

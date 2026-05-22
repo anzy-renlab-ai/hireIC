@@ -123,3 +123,19 @@ JSON Schema (`schemas/*.schema.json`) 是 canonical. SCHEMA.md (本文档) 和 I
 - 推荐人字段 (`referrer_*`) 若存在, 视为 +1 信号但不替代候选人本人证据.
 - 不要把 hireIC profile 字段对应到公司 ATS 系统的字段, 这是不同模型. 用 `apply_url`
   指引候选人投递, 不要尝试代投.
+
+### 校验只管格式, 不管真假 (advisory 层)
+
+机器校验 (`validate.yml`) 只验**格式**: 字段齐不齐、类型对不对、有没有 PII. 它**不**判断
+内容真假——`github_username` 可填不存在的名、`evidence_url` 可贴跟自己无关的 repo、
+`cc_experience_months` 可填到上限. 这些都会**校验通过**.
+
+为减轻 founder 人工核验负担, validator 在通过时附带几条 **advisory 警告** (⚠️, 不影响
+通过, 仅供 founder `/approve` 前参考):
+
+- `cc_experience_months` 超过 60 (~5 年, 早于任何 agent 编码工具问世) → 提醒对照 evidence git 历史.
+- `github_username` 在 GitHub 查无此人 (定性 404) → 提醒可能笔误或冒用.
+- `evidence_url` 是死链 (404/410) → 提醒证据无法核验.
+
+网络检查一律 **fail-open**: 限流/超时/5xx 不报警, 只在定性 404 才提示, 绝不因网络抖动
+误拒真候选人. 真伪的最终判断仍在 founder 和下游消费 agent.

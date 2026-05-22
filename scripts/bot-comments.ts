@@ -2,7 +2,7 @@
 // specific (names each failing field), actionable (gives examples), anti-shame
 // (always closes with "不限次数 retry"). Chinese primary, English secondary.
 
-import type { FieldError, PIIHit } from "./issue-parser.js";
+import type { FieldError, FieldWarning, PIIHit } from "./issue-parser.js";
 
 const TRANSPARENCY_HEADER = "(自动校验, 不是 founder 本人)";
 const RETRY_FOOTER =
@@ -33,16 +33,33 @@ export function renderValidationErrorComment(errors: FieldError[]): string {
   ].join("\n");
 }
 
-export function renderValidationSuccessComment(kind: "candidate" | "job"): string {
+function warningBullet(w: FieldWarning): string {
+  return `⚠️ \`${w.field}\` — ${w.message}`;
+}
+
+export function renderValidationSuccessComment(
+  kind: "candidate" | "job",
+  warnings: FieldWarning[] = [],
+): string {
   const subject = kind === "candidate" ? "候选人 profile" : "招聘职位";
-  return [
+  const lines = [
     TRANSPARENCY_HEADER,
     "",
     `✅ 校验通过. 你的${subject}已加上 \`pending-review\` 标签, 等 founder 审 (通常 24h 内).`,
     "",
     "若 founder 评 `/approve`, 会自动生成 markdown 文件 + auto-merge.",
     "若 founder 评具体反馈, 你可以继续编辑这个 issue.",
-  ].join("\n");
+  ];
+  if (warnings.length > 0) {
+    lines.push(
+      "",
+      "---",
+      "下面几条**不影响提交**, 是给 founder 审核时参考的信号 (格式校验过了, 但内容值得人工确认一下):",
+      "",
+      ...warnings.map(warningBullet),
+    );
+  }
+  return lines.join("\n");
 }
 
 function maskMobile(s: string): string {

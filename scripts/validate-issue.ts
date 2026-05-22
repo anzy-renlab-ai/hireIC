@@ -17,13 +17,17 @@ import {
   validateCandidatePayload,
   validateJobPayload,
   detectPII,
+  candidateWarnings,
   type FieldError,
+  type FieldWarning,
+  type CandidatePayload,
 } from "./issue-parser.js";
 import {
   renderValidationErrorComment,
   renderValidationSuccessComment,
   renderPIIRejectionComment,
 } from "./bot-comments.js";
+import { gatherNetworkWarnings } from "./signals.js";
 
 interface RunArgs {
   body: string;
@@ -36,6 +40,7 @@ export interface RunResult {
   commentMarkdown: string;
   applyLabel: string | null;
   reason: "validated" | "pii" | "missing_kind_label" | "field_errors";
+  warnings: FieldWarning[];
 }
 
 function detectKind(labels: string[]): "candidate" | "job" | null {
@@ -44,7 +49,9 @@ function detectKind(labels: string[]): "candidate" | "job" | null {
   return null;
 }
 
-export function runValidation(args: Omit<RunArgs, "outDir">): RunResult {
+export function runValidation(
+  args: Omit<RunArgs, "outDir"> & { extraWarnings?: FieldWarning[] },
+): RunResult {
   const kind = detectKind(args.labels);
   if (!kind) {
     return {
@@ -59,6 +66,7 @@ export function runValidation(args: Omit<RunArgs, "outDir">): RunResult {
       ]),
       applyLabel: null,
       reason: "missing_kind_label",
+      warnings: [],
     };
   }
 
@@ -69,6 +77,7 @@ export function runValidation(args: Omit<RunArgs, "outDir">): RunResult {
       commentMarkdown: renderPIIRejectionComment(piiHits),
       applyLabel: null,
       reason: "pii",
+      warnings: [],
     };
   }
 
@@ -84,14 +93,24 @@ export function runValidation(args: Omit<RunArgs, "outDir">): RunResult {
       commentMarkdown: renderValidationErrorComment(result.errors as FieldError[]),
       applyLabel: null,
       reason: "field_errors",
+      warnings: [],
     };
   }
 
+  // Advisory only — never flips outcome. Pure (cc-months) warnings computed
+  // here; network-backed warnings are injected via extraWarnings by main().
+  const pureWarnings =
+    kind === "candidate"
+      ? candidateWarnings(result.payload as CandidatePayload)
+      : [];
+  const warnings = [...pureWarnings, ...(args.extraWarnings ?? [])];
+
   return {
     outcome: "pass",
-    commentMarkdown: renderValidationSuccessComment(kind),
+    commentMarkdown: renderValidationSuccessComment(kind, warnings),
     applyLabel: "pending-review",
     reason: "validated",
+    warnings,
   };
 }
 
@@ -121,7 +140,31 @@ async function main(): Promise<void> {
   }
   const outDir = process.env.OUT_DIR ?? process.cwd();
 
-  const result = runValidation({ body, labels });
+  // First pass: pure validation (offline, deterministic).
+  const dry = runValidation({ body, labels });
+
+  // If a candidate passed, enrich with network-backed advisory signals.
+  // Fail-open: any error here leaves the dry result untouched — network
+  // flakiness must never block a valid submission.
+  let extraWarnings: FieldWarning[] = [];
+  if (dry.outcome === "pass" && detectKind(labels) === "candidate") {
+    const parsed = validateCandidatePayload(parseIssueBody(body));
+    if (parsed.ok) {
+      try {
+        extraWarnings = await gatherNetworkWarnings(
+          parsed.payload,
+          process.env.GITHUB_TOKEN ? { token: process.env.GITHUB_TOKEN } : {},
+        );
+      } catch {
+        extraWarnings = [];
+      }
+    }
+  }
+
+  const result =
+    extraWarnings.length > 0
+      ? runValidation({ body, labels, extraWarnings })
+      : dry;
   await writeArtifacts(outDir, result);
   console.log(`outcome=${result.outcome} reason=${result.reason} label=${result.applyLabel ?? "(none)"}`);
 }
