@@ -210,3 +210,58 @@ describe("schema_version handling", () => {
     expect(result.errors[0]?.kind).toBe("schema_invalid");
   });
 });
+
+describe("MCP serving — prompt-injection hardening of free-text", () => {
+  const ZW = "​"; // zero-width space
+  const BIDI = "‮"; // right-to-left override
+
+  it("strips zero-width / bidi / control chars from served free-text (anti-smuggling)", async () => {
+    const evil = [
+      "---",
+      'schema_version: "0.1"',
+      "github_username: evilcand",
+      "cc_experience_months: 12",
+      "evidence_url: https://github.com/evilcand/x/pull/1",
+      "contact_mode: public",
+      "contact_value: e@example.com",
+      `bio_zh: "hi${ZW}there${BIDI}evil"`,
+      'agent_stack: "cc \\t stack"',
+      "---",
+      "",
+    ].join("\n");
+    const fetcher = makeFetcher({ "candidates": [{ name: "evilcand.md", content: evil }] });
+    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
+    const c = result.candidates[0]!;
+    expect(c.bio_zh).toBe("hithereevil");
+    // no zero-width, bidi, or C0 control chars remain
+    // eslint-disable-next-line no-control-regex
+    expect(/[\u0000-\u001F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/.test(c.bio_zh ?? "")).toBe(false);
+  });
+
+  it("does not alter clean free-text", async () => {
+    const fetcher = makeFetcher({
+      "candidates": [{ name: "alicelu.md", content: validCandidateMd }],
+    });
+    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
+    expect(result.candidates[0]?.bio_zh).toBe("全栈, cc 用得熟");
+  });
+
+  it("sanitizes job free-text too", async () => {
+    const evilJob = [
+      "---",
+      'schema_version: "0.1"',
+      "company: Acme",
+      `role_title_zh: "工程师${ZW}"`,
+      "cc_required: true",
+      "apply_url: https://acme.com/j/1",
+      "contact_value: jobs@acme.com",
+      `description_zh: "good role${BIDI}evil"`,
+      "---",
+      "",
+    ].join("\n");
+    const fetcher = makeFetcher({ "jobs": [{ name: "acme.md", content: evilJob }] });
+    const result = await listJobs({ owner: "o", repo: "r", fetcher });
+    expect(result.jobs[0]?.role_title_zh).toBe("工程师");
+    expect(result.jobs[0]?.description_zh).toBe("good roleevil");
+  });
+});

@@ -111,6 +111,29 @@ function isMarkdownFile(name: string): boolean {
   return name.endsWith(".md") && !name.startsWith(".");
 }
 
+// Prompt-injection hardening: candidate/job free-text is served verbatim to a
+// recruiter's LLM agent. Strip characters that have no legitimate use in this
+// data but are used to smuggle hidden instructions past human review —
+// C0 control chars (except \t \n \r), DEL, zero-width, bidi overrides, BOM.
+// Visible content is preserved; this only removes invisible/control codepoints.
+// eslint-disable-next-line no-control-regex
+const SMUGGLING_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
+
+function sanitizeFreeText(value: string): string {
+  return value.replace(SMUGGLING_CHARS_RE, "");
+}
+
+// Shallow-sanitize every string field of a served record. Schema-constrained
+// fields (usernames, URLs, enums) contain no control chars so this is a no-op
+// for them; free-text fields get cleaned.
+function sanitizeRecord<T extends Record<string, unknown>>(data: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    out[k] = typeof v === "string" ? sanitizeFreeText(v) : v;
+  }
+  return out as T;
+}
+
 function parseFrontmatter(
   file: RawFile,
 ): { ok: true; data: Record<string, unknown> } | { ok: false; error: HandlerError } {
@@ -189,7 +212,7 @@ export async function listCandidates(args: ListCandidatesArgs): Promise<ListCand
       });
       continue;
     }
-    candidates.push(parsed.data as unknown as AgentCv);
+    candidates.push(sanitizeRecord(parsed.data) as unknown as AgentCv);
   }
 
   return { candidates, errors };
@@ -220,7 +243,7 @@ export async function listJobs(args: ListJobsArgs): Promise<ListJobsResult> {
       continue;
     }
 
-    const job = parsed.data as unknown as AgentJob;
+    const job = sanitizeRecord(parsed.data) as unknown as AgentJob;
     if (!args.includeClosed && job.status === "closed") continue;
     jobs.push(job);
   }
