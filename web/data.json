@@ -1,12 +1,27 @@
 {
-  "generated_at": "2026-05-22T12:09:48.363Z",
+  "generated_at": "2026-05-23T13:31:18.231Z",
   "repo": "anzy-renlab-ai/hireIC",
   "schema_version": "0.1",
   "counts": {
-    "jobs": 0,
+    "jobs": 1,
     "candidates": 0,
     "jobs_closed": 0
   },
-  "jobs": [],
+  "jobs": [
+    {
+      "name": "renlab-ai-builder-2026-05.md",
+      "idx": "01",
+      "company": "renlab",
+      "role_title_zh": "AI Builder（social intelligence 方向）",
+      "role_title_en": "AI Builder",
+      "description_zh": "做 social intelligence —— 用 agent 构建社交情报产品 (详情见 https://renlab.ai)。要求把 Claude Code / 同类 agent 当日常 driver, 不是偶尔用。",
+      "description_en": null,
+      "location": "—",
+      "remote_policy": null,
+      "salary_range_rmb": "20-40k/月",
+      "employment_type": "full-time",
+      "apply_url": "https://renlab.ai"
+    }
+  ],
   "candidates": []
 }
