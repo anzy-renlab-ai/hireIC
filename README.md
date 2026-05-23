@@ -7,7 +7,7 @@ LinkedIn 没法筛"会用 Claude Code 的人". 这个 repo 是答案 —
 干活的 IC, 让 IC 用一份 profile 在多个聚合器之间通用.
 
 <!-- counts -->
-**目前 0 个职位 · 0 个候选人**
+**目前 1 个职位 · 0 个候选人**
 <!-- /counts -->
 
 ---
