@@ -353,6 +353,7 @@
                 <a class="cta" id="cta-browse" href="#openings">./browse-openings.sh →</a>
                 <a class="cta ghost" id="cta-apply" href="#">./submit-profile.sh</a>
               </div>
+              <p class="hero-help" style="color:var(--fg-2); font-size:12px; margin:12px 0 0; line-height:1.6;"><span class="accent">candidate?</span> get listed in ~2 min — just your <b style="color:var(--fg)">GitHub username</b> + <b style="color:var(--fg)">one public link to your cc work</b>. <span class="dim">employed → pick hidden mode, your contact stays private.</span></p>
               <div class="hero-meta">
                 <div class="stat"><div class="n" id="stat-jobs">—</div><div class="l">jobs in registry</div></div>
                 <div class="stat"><div class="n" id="stat-candidates">—</div><div class="l">candidates</div></div>
@@ -508,6 +509,16 @@
               <span class="count" id="candidates-count-label">— loading</span>
             </div>
             <a class="cta ghost" id="cand-add" href="#">./submit-profile →</a>
+          </div>
+          <div class="submit-callout" style="border:1px solid var(--line-2); padding:14px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px;">
+            <div style="min-width:240px; flex:1;">
+              <div style="color:var(--accent); font-size:13px; margin-bottom:6px;">// get listed — submit your profile in ~2 min</div>
+              <div style="color:var(--fg-2); font-size:12.5px; line-height:1.65;">
+                You need: your <b style="color:var(--fg)">GitHub username</b> + <b style="color:var(--fg)">one public link that shows your Claude Code work</b> (a PR, gist, or repo). Public contact, or pick <code style="color:var(--accent)">hidden</code> if you're employed.
+                <br><span class="dim">No phone number, no resume upload. Auto-checked in ~30s.</span>
+              </div>
+            </div>
+            <a class="cta" href="https://github.com/anzy-renlab-ai/hireIC/issues/new?template=candidate.yml" style="white-space:nowrap;">./submit-profile.sh →</a>
           </div>
           <div class="board-filters" id="cand-filters" style="display: none;">
             <button class="chip active" data-filter="all">all <span class="count" id="cnt-all"></span></button>
@@ -759,8 +770,11 @@
           container.innerHTML = `
             <div class="empty-state">
               <div class="big">// no candidates yet</div>
-              <div>be the first cc-fluent IC to publish a profile.</div>
-              <div class="hint">submit via Issue Form: <code>${APPLY_CANDIDATE_URL.replace('https://github.com/', '')}</code></div>
+              <div>be the first cc-fluent IC listed here.</div>
+              <div class="hint" style="margin-top:14px; line-height:1.75;">
+                <b style="color:var(--fg)">2 minutes:</b> your GitHub username + one public link to your cc work (PR / gist / repo).<br>
+                Public contact, or <code>hidden</code> mode if you're employed. No phone, no resume upload.
+              </div>
               <div style="margin-top: 20px;">
                 <a class="cta" href="${APPLY_CANDIDATE_URL}">./submit-profile.sh →</a>
               </div>
