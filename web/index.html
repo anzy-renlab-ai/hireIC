@@ -688,41 +688,30 @@
           renderUnknown();
         }
 
-        // Step 2: best-effort GitHub API refresh for fresher counts.
-        // Snapshot (/data.json) is the source of truth for full fields (bio,
-        // contact, evidence). Live API only has filenames — never use it to
-        // replace snapshot details. We only escalate to live if snapshot is
-        // missing entirely (dev / not-deployed scenario).
+        // Step 2: only when we have NO snapshot (dev / not-deployed) do we hit
+        // the GitHub API. When /data.json is present it's authoritative and
+        // current (update-counts regenerates it on every merge), so we skip the
+        // unauthenticated Contents API calls entirely — anonymously they cap at
+        // 60/hr/IP and start returning 403s that spam the console and bite
+        // visitors behind shared/NAT IPs, without showing anything the snapshot
+        // doesn't already have.
+        if (data) return;
         try {
           const [jobsRaw, candsRaw] = await Promise.all([ghFetch("jobs"), ghFetch("candidates")]);
           const jobsMd = countMd(jobsRaw);
           const candsMd = countMd(candsRaw);
-          const liveJobs = jobsMd.length;
-          const liveCands = candsMd.length;
-
-          if (!data) {
-            // No snapshot — fall back to live rendering (limited fields).
-            const ghData = {
-              generated_at: new Date().toISOString(),
-              repo: GH_REPO,
-              counts: { jobs: liveJobs, candidates: liveCands, jobs_closed: 0 },
-              jobs: jobsMd.map((f, i) => ({ name: f.name, idx: String(i + 1).padStart(2, "0"), download_url: f.download_url })),
-              candidates: candsMd.map(f => ({ name: f.name, github_username: f.name.replace(/\.md$/, ""), profile_url: `https://github.com/${GH_REPO}/blob/main/candidates/${f.name}` })),
-            };
-            renderFromData(ghData, "live");
-            await enrichLiveJobs(ghData.jobs);
-            return;
-          }
-
-          // Snapshot present — only update count badges if live differs (deploy
-          // race: data.json regenerated more recently than its serving cache).
-          if (liveJobs !== data.counts.jobs || liveCands !== data.counts.candidates) {
-            const drift = `<span style='color: var(--warn); font-size: 11px;'>· live: ${liveJobs}j ${liveCands}c (snapshot may lag)</span>`;
-            const o = document.getElementById("openings-count");
-            if (o && !o.innerHTML.includes("live:")) o.innerHTML += " " + drift;
-          }
+          // No snapshot — fall back to live rendering (limited fields).
+          const ghData = {
+            generated_at: new Date().toISOString(),
+            repo: GH_REPO,
+            counts: { jobs: jobsMd.length, candidates: candsMd.length, jobs_closed: 0 },
+            jobs: jobsMd.map((f, i) => ({ name: f.name, idx: String(i + 1).padStart(2, "0"), download_url: f.download_url })),
+            candidates: candsMd.map(f => ({ name: f.name, github_username: f.name.replace(/\.md$/, ""), profile_url: `https://github.com/${GH_REPO}/blob/main/candidates/${f.name}` })),
+          };
+          renderFromData(ghData, "live");
+          await enrichLiveJobs(ghData.jobs);
         } catch {
-          // Silent — build-time data.json already on screen.
+          // Silent — renderUnknown() already left a usable fallback on screen.
         }
       }
 
