@@ -111,14 +111,14 @@
   <section class="hero" style="border:0">
     <div class="eyebrow">// cc-verified hiring</div>
     <h1>招到<span class="accent">真的会用</span> Claude Code 的人。</h1>
-    <p class="sub">简历会包装,GitHub star 会刷。hireIC 不看这些——候选人<b>通过自己的 agent</b> 投递,我们在服务端给出一份<b>没法伪造</b>的 Claude Code 实战评分。</p>
+    <p class="sub">简历会包装。hireIC 看的是你<b>真实的 Claude Code 工作痕迹</b>——天天用 agent 干活的人,作品一眼认得出。防君子不防小人,但对招人来说这个信号够用。</p>
     <div class="cta-row">
       <a class="btn" href="#jobs">看职位 →</a>
-      <a class="btn ghost" href="#how">怎么通过 agent 投递</a>
+      <a class="btn ghost" href="#how">怎么投递</a>
     </div>
     <div class="trust">
-      <div class="item"><b>不可伪造</b>评分来自你真实的 cc 工作 + 你怎么驱动 agent,服务端计算。</div>
-      <div class="item"><b>候选人不公开</b>没有公开个人页。申请只私密发给你投的那一家。</div>
+      <div class="item"><b>看真实工作</b>凭你公开的 cc 实战(PR / repo)判断,不是简历自报。挡得住注水,不号称防死造假的人。</div>
+      <div class="item"><b>不必公开求职</b>没有公开候选人档案。你只把作品发给你想投的那一家。</div>
       <div class="item"><b>协议优先</b>职位是公开数据,任何 agent 可读;MCP 原生。</div>
     </div>
   </section>
@@ -126,7 +126,7 @@
   <section id="jobs">
     <div class="sec-h">// open roles</div>
     <h2>在招职位</h2>
-    <p class="lead">cc 是硬性要求的岗位。点开了解,通过你的 agent 投递。</p>
+    <p class="lead">cc 是硬性要求的岗位。投递 = 拿出你真实的 cc 实战,直接联系招聘方。</p>
     <a class="job" href="https://renlab.ai" target="_blank" rel="noopener">
       <div class="top">
         <span class="title">AI Builder · 多 agent 模拟 / 社会世界模型</span>
@@ -135,34 +135,31 @@
       </div>
       <div class="desc">做 social intelligence——给 AI-native 组织的预测与协调底座。从 0 搭多 agent 模拟,跑真实组织与人群的演化,逐步沉淀成可训练的社会世界模型 (SWM)。研究味重,但必须能 ship。</div>
       <div class="tags"><span class="tag">full-time</span><span class="tag">cc-required</span><span class="tag">multi-agent</span><span class="tag">world-model</span></div>
-      <div class="apply-note">投递:<code class="cmd" data-cmd="npx hireic apply renlab-ai-builder">npx hireic apply renlab-ai-builder</code> — 用你自己的 Claude Code 跑。</div>
+      <div class="apply-note">投递:把最能体现你 cc 实战的公开链接(PR / gist / repo)+ 你的 GitHub,发到 <code class="cmd" data-cmd="anzy@renlab.ai">anzy@renlab.ai</code>。</div>
     </a>
   </section>
 
   <section id="how">
     <div class="sec-h">// how to apply</div>
-    <h2>通过你的 agent 投递</h2>
-    <p class="lead">不填网页表单。你用自己的 Claude Code 投递——这本身就是第一道验证:不真用 agent 的人,投不了。</p>
+    <h2>怎么投递</h2>
+    <p class="lead">不走网申表单。拿出你真实的 cc 实战,直接给招聘方——真用 agent 干活的人,作品自己会说话。</p>
     <div class="steps">
-      <div class="step"><div class="n">01</div><h3>连上 hireIC</h3><p>在你的 Claude Code 里加 hireIC MCP,或直接跑 <code class="cmd" data-cmd="npx hireic">npx hireic</code>。</p></div>
-      <div class="step"><div class="n">02</div><h3>让 agent 投递</h3><p>对你的 agent 说"投 renlab 那个 AI Builder"。它通过协议替你投,带上你的 GitHub。</p></div>
-      <div class="step"><div class="n">03</div><h3>服务端打分 + 私密转交</h3><p>hireIC 扒你真实 cc 痕迹 + 看你怎么驱动 agent,打分,把申请 + 分数 + 你的联系方式只发给那家公司。</p></div>
+      <div class="step"><div class="n">01</div><h3>挑一条真东西</h3><p>一个 cc 主导的 PR、一段 gist、或一个 repo——最能体现你怎么用 Claude Code 干活的。</p></div>
+      <div class="step"><div class="n">02</div><h3>直接发给招聘方</h3><p>连同你的 GitHub,发到职位上的联系方式。不必填一堆表单字段,也不必公开求职。</p></div>
+      <div class="step"><div class="n">03</div><h3>对方看真实作品判断</h3><p>招聘方看你的真实 cc 痕迹和 git 历史下判断,不是看简历自报的"熟练度"。</p></div>
     </div>
-    <div class="codeblock">
-<span class="c"># 你的 Claude Code 会话里:</span><br>
-&gt; <span class="g">投一下 hireIC 上 renlab 的 AI Builder</span><br>
-<span class="c"># agent 通过 hireIC MCP 完成投递,服务端评分,私密送达 renlab。</span><br>
-<span class="c"># 你不会被公开列出。只有 renlab 看到你。</span>
-    </div>
+    <p class="lead" style="margin-top:26px;font-size:14px;color:var(--ink-3);border-top:1px dashed var(--line-2);padding-top:18px">
+      <b style="color:var(--ink-2)">在建:</b>agent 原生投递 + 自动 cc 信号分——你的 Claude Code 经 hireIC 协议直接投,服务端基于公开痕迹给个 cc 信号分。还没上线,先走上面的方式。
+    </p>
   </section>
 
   <section id="why">
     <div class="sec-h">// why it's different</div>
     <h2>为什么不是又一个招聘网站</h2>
     <div class="why">
-      <div class="card"><h3>验证,不是自报</h3><p>LinkedIn 让你勾"会用 AI"。hireIC 让你的 agent 当场证明——评分服务端算,装不出来。</p></div>
+      <div class="card"><h3>看作品,不是自报</h3><p>LinkedIn 让你勾"会用 AI"。hireIC 要你拿出真实的 cc 工作——PR、repo、真实 git 历史。防君子不防小人,但简历注水那套在这儿不好使。</p></div>
       <div class="card"><h3>候选人零曝光</h3><p>没有公开求职档案。在职的人不必向全世界(和现东家)广播"我在看机会"。</p></div>
-      <div class="card"><h3>公司省筛选</h3><p>到手的不是一摞简历,是一份带证据的 cc 实战分 + 直接联系方式。</p></div>
+      <div class="card"><h3>公司省筛选</h3><p>到手的不是一摞简历,是候选人真实的 cc 作品 + 直接联系方式,你自己判断。</p></div>
       <div class="card"><h3>开放协议</h3><p>职位是公开 Markdown + JSON Schema,任何聚合器/agent 可读。不锁定。</p></div>
     </div>
   </section>
