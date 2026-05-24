@@ -33,11 +33,16 @@ describe("scoreCc — multi-dimensional cc-signal (防君子不防小人)", () =
     expect(r.score).toBeGreaterThan(scoreCc(heavyRecentUsage).score);
   });
 
-  it("self-report ALONE (no verified usage) cannot reach strong — capped, discounted", () => {
-    const bigProfile: AgentProfile = { skills: 9, mcpServers: 5, selfAuthoredMcp: true, subagents: 5, hooks: 5, slashCommands: 9, hasClaudeMd: true };
-    const r = scoreCc(base, bigProfile);
+  it("self-report ALONE (no verified usage) cannot reach strong — even maxed out", () => {
+    // Max every self-reported dimension: mastery + local + tenure.
+    const bigProfile: AgentProfile = {
+      skills: 99, mcpServers: 99, selfAuthoredMcp: true, subagents: 99, hooks: 99, slashCommands: 99,
+      hasClaudeMd: true, outputStyles: 99, hasStatusline: true,
+      localCcCommits: 999, localCcRepos: 99, localCcMonths: 99, localCcTenureMonths: 99,
+    };
+    const r = scoreCc(base, bigProfile); // zero verified public footprint
     expect(r.band).not.toBe("strong");
-    expect(r.score).toBeLessThanOrEqual(30);
+    expect(r.score).toBeLessThan(65); // strong requires VERIFIED public usage
   });
 
   it("RECENCY: same footprint, stale (>1yr) scores far lower than recent", () => {

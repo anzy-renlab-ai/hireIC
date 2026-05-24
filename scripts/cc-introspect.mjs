@@ -36,6 +36,9 @@ let slashCommands = 0;
 try { slashCommands = readdirSync(join(claude, "commands")).filter((f) => f.endsWith(".md")).length; } catch {}
 const hasClaudeMd = existsSync(join(claude, "CLAUDE.md"));
 const subagents = countDirs(join(claude, "agents"));
+let outputStyles = 0;
+try { outputStyles = readdirSync(join(claude, "output-styles")).filter((f) => f.endsWith(".md")).length; } catch {}
+const hasStatusline = Boolean(settings.statusLine);
 
 // --- local cc footprint across git repos (private / non-GitHub work) ---
 // Scan one level under scanRoot for git repos; aggregate commits whose message
@@ -68,6 +71,14 @@ for (const d of entries) {
   }
 }
 
+const sortedMonths = [...months].sort();
+let localCcTenureMonths = 0;
+if (sortedMonths.length) {
+  const [ey, em] = sortedMonths[0].split("-").map(Number);
+  const now2 = new Date();
+  localCcTenureMonths = Math.max(0, (now2.getFullYear() * 12 + now2.getMonth() + 1) - (ey * 12 + em));
+}
+
 const profile = {
   skills,
   mcpServers,
@@ -75,8 +86,11 @@ const profile = {
   hooks,
   slashCommands,
   hasClaudeMd,
+  outputStyles,
+  hasStatusline,
   localCcCommits,
   localCcRepos,
   localCcMonths: months.size,
+  localCcTenureMonths,
 };
 process.stdout.write(JSON.stringify(profile) + "\n");

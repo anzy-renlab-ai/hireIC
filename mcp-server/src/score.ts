@@ -37,12 +37,15 @@ export interface AgentProfile {
   hooks?: number; // # configured hooks
   slashCommands?: number; // # custom slash commands
   hasClaudeMd?: boolean; // maintains a CLAUDE.md
+  outputStyles?: number; // # custom output styles (sophistication)
+  hasStatusline?: boolean; // configured a custom statusline (sophistication)
   // Local cc footprint the agent counts via `git log` across ALL local repos —
   // including PRIVATE / GitLab / non-GitHub work that public search can't see.
   // Counts only (no repo names/paths/content). Self-reported → discounted.
   localCcCommits?: number;
   localCcRepos?: number;
   localCcMonths?: number;
+  localCcTenureMonths?: number; // months since their FIRST cc commit (cc history/experience)
 }
 
 export type CcBand = "none" | "weak" | "moderate" | "strong";
@@ -50,7 +53,7 @@ export type CcBand = "none" | "weak" | "moderate" | "strong";
 export interface CcScore {
   score: number; // 0-100
   band: CcBand;
-  breakdown: { usage: number; mastery: number; localUsage: number; recencyFactor: number };
+  breakdown: { usage: number; mastery: number; localUsage: number; history: number; recencyFactor: number };
   evidence: CcEvidence;
   profile: AgentProfile | null;
   note: string;
@@ -92,8 +95,18 @@ function masteryPoints(p: AgentProfile | undefined): number {
     Math.min((p.subagents ?? 0) * 4, 12) +
     Math.min((p.hooks ?? 0) * 3, 9) +
     Math.min((p.slashCommands ?? 0) * 2, 8) +
-    (p.hasClaudeMd ? 5 : 0);
-  return Math.min(raw, 60) * 0.5;
+    (p.hasClaudeMd ? 5 : 0) +
+    Math.min((p.outputStyles ?? 0) * 4, 8) +
+    (p.hasStatusline ? 4 : 0);
+  return Math.min(raw, 70) * 0.5;
+}
+
+// cc history / experience: how long they've been using cc. Self-reported
+// (from local first-commit date), discounted. An early adopter with years of cc
+// scores higher than someone who started last week. Max ~6.
+function historyPoints(p: AgentProfile | undefined): number {
+  if (!p) return 0;
+  return Math.min((p.localCcTenureMonths ?? 0) * 1.2, 12) * 0.5;
 }
 
 // Self-reported local cc footprint (private / non-GitHub work) — same shape as
@@ -105,16 +118,17 @@ function localUsagePoints(p: AgentProfile | undefined): number {
     Math.min((p.localCcCommits ?? 0) * 1.2, 25) +
     Math.min((p.localCcRepos ?? 0) * 5, 15) +
     Math.min((p.localCcMonths ?? 0) * 4, 15);
-  return raw * 0.4;
+  return raw * 0.3; // harder discount: even maxed self-report stays < strong without verified usage
 }
 
 export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
   const usage = usagePoints(evidence);
   const mastery = masteryPoints(profile);
   const localUsage = localUsagePoints(profile);
+  const history = historyPoints(profile);
   // Recency only decays the VERIFIED footprint; self-reported parts aren't dated.
   const recency = evidence.ccCommits > 0 ? recencyFactor(evidence.daysSinceLast) : 1;
-  const base = Math.min(100, usage * recency + mastery + localUsage);
+  const base = Math.min(100, usage * recency + mastery + localUsage + history);
   const score = Math.round(base);
   return {
     score,
@@ -123,6 +137,7 @@ export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
       usage: Math.round(usage),
       mastery: Math.round(mastery),
       localUsage: Math.round(localUsage),
+      history: Math.round(history),
       recencyFactor: recency,
     },
     evidence,
