@@ -10,6 +10,7 @@ export interface EvidenceDeps {
   fetchImpl?: typeof fetch;
   token?: string;
   now?: number; // injectable clock for deterministic recency in tests
+  pageSize?: number; // injectable page size for tests (default 100)
 }
 
 interface SearchItem {
@@ -36,72 +37,63 @@ export async function gatherCcEvidence(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now();
 
-  // Search commits authored by the candidate that mention the anthropic noreply
-  // address (the Claude Code co-author fingerprint). The server-side query
-  // narrows; we then filter each item's message by the exact trailer regex to
-  // drop fuzzy hits (e.g. a human collaborator literally named "Claude").
+  // Search commits authored by the candidate mentioning the anthropic noreply
+  // address (the Claude Code co-author fingerprint), newest-first. Anti-spoof +
+  // precision: git authorship is forgeable, so keep only commits whose REPO is
+  // OWNED by the candidate (can't push without access) AND whose message carries
+  // the exact trailer. (Misses cc work shipped as PRs to others' repos — a
+  // deliberate trade for trust; future PR-verified addition.)
+  const login = github.toLowerCase();
   const q = `author:${github} Co-authored-by Claude noreply@anthropic.com`;
-  const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=100`;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
   if (deps.token) headers.Authorization = `Bearer ${deps.token}`;
 
-  try {
-    const resp = await fetchImpl(url, {
-      headers,
-      redirect: "error",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!resp.ok) return empty;
-    const json = (await resp.json()) as { items?: SearchItem[] };
-    const all = Array.isArray(json.items) ? json.items : [];
-    // Precision + anti-spoof. Git commit authorship is forgeable (anyone can set
-    // author name/email/login locally), so GitHub commit search returns commits
-    // "by" the candidate that actually live in strangers' repos. The hard-to-fake
-    // signal is a commit in a repo the candidate OWNS (you can't push there without
-    // access). So keep only: (1) repo owner === candidate, AND (2) the exact Claude
-    // Code trailer in the message. (Misses cc work shipped as PRs to others' repos —
-    // a deliberate trade for trust; that's a future, PR-verified addition.)
-    const login = github.toLowerCase();
-    const items = all.filter((it) => {
-      const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
-      return owner === login && CLAUDE_TRAILER_RE.test(it.commit?.message ?? "");
-    });
-    if (items.length === 0) return empty;
+  const perPage = deps.pageSize ?? 100;
+  const MAX_PAGES = 2; // ≤100 commits → 1 request; only heavy users trigger a 2nd. Don't over-fetch.
+  const kept: SearchItem[] = [];
 
-    const repos = new Set<string>();
-    const months = new Set<string>(); // YYYY-MM buckets → cadence
-    const dates: number[] = [];
-    const sampleUrls: string[] = [];
-    for (const it of items) {
-      const repo = it.repository?.full_name;
-      if (repo) repos.add(repo);
-      const d = it.commit?.author?.date;
-      if (d) {
-        const t = Date.parse(d);
-        if (!Number.isNaN(t)) {
-          dates.push(t);
-          months.add(d.slice(0, 7)); // "YYYY-MM"
-        }
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=${perPage}&page=${page}&sort=author-date&order=desc`;
+    let rawLen = 0;
+    try {
+      const resp = await fetchImpl(url, { headers, redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      if (!resp.ok) break;
+      const json = (await resp.json()) as { items?: SearchItem[] };
+      const all = Array.isArray(json.items) ? json.items : [];
+      rawLen = all.length;
+      for (const it of all) {
+        const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
+        if (owner === login && CLAUDE_TRAILER_RE.test(it.commit?.message ?? "")) kept.push(it);
       }
-      if (it.html_url && sampleUrls.length < 3) sampleUrls.push(it.html_url);
+    } catch {
+      break; // fail-open: keep whatever we already collected
     }
-    const spanDays =
-      dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
-    const daysSinceLast =
-      dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
-
-    return {
-      ccCommits: items.length,
-      ccRepos: repos.size,
-      activeMonths: months.size,
-      daysSinceLast,
-      spanDays,
-      sampleUrls,
-    };
-  } catch {
-    return empty; // fail-open: rate-limit / timeout / network → no signal, never block
+    if (rawLen < perPage) break; // last page reached
   }
+  if (kept.length === 0) return empty;
+
+  const repos = new Set<string>();
+  const months = new Set<string>(); // YYYY-MM buckets → cadence
+  const dates: number[] = [];
+  const sampleUrls: string[] = [];
+  for (const it of kept) {
+    const repo = it.repository?.full_name;
+    if (repo) repos.add(repo);
+    const d = it.commit?.author?.date;
+    if (d) {
+      const t = Date.parse(d);
+      if (!Number.isNaN(t)) {
+        dates.push(t);
+        months.add(d.slice(0, 7));
+      }
+    }
+    if (it.html_url && sampleUrls.length < 3) sampleUrls.push(it.html_url);
+  }
+  const spanDays = dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
+  const daysSinceLast = dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
+
+  return { ccCommits: kept.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls };
 }
