@@ -21,6 +21,10 @@
   .accent{color:var(--accent)}
   code{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);
     color:var(--accent);padding:1px 6px;border-radius:4px}
+  code.cmd{cursor:pointer;user-select:all;transition:background .1s}
+  code.cmd:hover{background:#f7d8cc}
+  code.cmd::after{content:" ⧉";opacity:.5;font-size:.85em;user-select:none}
+  code.cmd.copied::after{content:" ✓ 已复制";opacity:1;color:var(--ok)}
 
   /* nav */
   header{position:sticky;top:0;z-index:10;background:rgba(247,246,243,.85);
@@ -131,7 +135,7 @@
       </div>
       <div class="desc">做 social intelligence——给 AI-native 组织的预测与协调底座。从 0 搭多 agent 模拟,跑真实组织与人群的演化,逐步沉淀成可训练的社会世界模型 (SWM)。研究味重,但必须能 ship。</div>
       <div class="tags"><span class="tag">full-time</span><span class="tag">cc-required</span><span class="tag">multi-agent</span><span class="tag">world-model</span></div>
-      <div class="apply-note">投递:<code>npx hireic apply renlab-ai-builder</code> — 用你自己的 Claude Code 跑。</div>
+      <div class="apply-note">投递:<code class="cmd" data-cmd="npx hireic apply renlab-ai-builder">npx hireic apply renlab-ai-builder</code> — 用你自己的 Claude Code 跑。</div>
     </a>
   </section>
 
@@ -140,7 +144,7 @@
     <h2>通过你的 agent 投递</h2>
     <p class="lead">不填网页表单。你用自己的 Claude Code 投递——这本身就是第一道验证:不真用 agent 的人,投不了。</p>
     <div class="steps">
-      <div class="step"><div class="n">01</div><h3>连上 hireIC</h3><p>在你的 Claude Code 里加 hireIC MCP,或直接跑 <code>npx hireic</code>。</p></div>
+      <div class="step"><div class="n">01</div><h3>连上 hireIC</h3><p>在你的 Claude Code 里加 hireIC MCP,或直接跑 <code class="cmd" data-cmd="npx hireic">npx hireic</code>。</p></div>
       <div class="step"><div class="n">02</div><h3>让 agent 投递</h3><p>对你的 agent 说"投 renlab 那个 AI Builder"。它通过协议替你投,带上你的 GitHub。</p></div>
       <div class="step"><div class="n">03</div><h3>服务端打分 + 私密转交</h3><p>hireIC 扒你真实 cc 痕迹 + 看你怎么驱动 agent,打分,把申请 + 分数 + 你的联系方式只发给那家公司。</p></div>
     </div>
@@ -176,5 +180,20 @@
   <a href="https://github.com/anzy-renlab-ai/hireIC" style="margin-left:auto">GitHub</a>
   <a href="https://renlab.ai">renlab.ai</a>
 </div></footer>
+<script>
+  document.querySelectorAll('code.cmd').forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();   // don't follow the card's link
+      var text = el.getAttribute('data-cmd') || el.textContent;
+      var done = function(){ el.classList.add('copied'); setTimeout(function(){ el.classList.remove('copied'); }, 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else {
+        var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+        ta.select(); try { document.execCommand('copy'); } catch(_){} document.body.removeChild(ta); done();
+      }
+    });
+  });
+</script>
 </body>
 </html>
