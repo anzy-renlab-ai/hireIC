@@ -3,7 +3,7 @@
 // Two sources, deliberately weighted differently:
 //   1. VERIFIED public footprint (CcEvidence) — what hireIC pulls from GitHub on
 //      its own: commits carrying the exact Claude Code co-author fingerprint,
-//      across repos, across months, how recently. Can't be faked casually.
+//      across repos, across months, how recently.
 //   2. AGENT self-report (AgentProfile) — the candidate's own Claude Code
 //      introspects its setup and reports PRIVACY-SAFE COUNTS/FLAGS only: how many
 //      custom skills, MCP servers, subagents, hooks, slash commands, a CLAUDE.md.
@@ -24,6 +24,7 @@ export interface CcEvidence {
   daysSinceLast: number;
   spanDays: number;
   sampleUrls: string[];
+  density?: number; // internal sample-distribution normalization
 }
 
 // Agent self-reported, privacy-safe: COUNTS and FLAGS only — never contents,
@@ -128,8 +129,11 @@ export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
   const history = historyPoints(profile);
   // Recency only decays the VERIFIED footprint; self-reported parts aren't dated.
   const recency = evidence.ccCommits > 0 ? recencyFactor(evidence.daysSinceLast) : 1;
-  const base = Math.min(100, usage * recency + mastery + localUsage + history);
+  // normalize the verified component for sample distribution
+  const k = evidence.density ?? 1;
+  const base = Math.min(100, usage * recency * k + mastery + localUsage + history);
   const score = Math.round(base);
+  const { density: _d, ...publicEvidence } = evidence;
   return {
     score,
     band: bandFor(score),
@@ -140,7 +144,7 @@ export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
       history: Math.round(history),
       recencyFactor: recency,
     },
-    evidence,
+    evidence: publicEvidence,
     profile: profile ?? null,
     note: NOTE,
   };

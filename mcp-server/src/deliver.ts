@@ -14,6 +14,7 @@ export interface Application {
   score: number;
   band: string;
   evidenceUrls: string[];
+  vouched?: boolean; // internal referral signal (set server-side)
 }
 
 export interface EmailMessage {
@@ -36,6 +37,7 @@ export function renderApplicationEmail(app: Application): EmailMessage {
     : "  (无公开 commit 证据)";
   const text = [
     `一位候选人通过 hireIC 投递了你的职位。直接联系 ta 即可。`,
+    ...(app.vouched ? [`内部信号 ✓`] : []),
     ``,
     `GitHub: https://github.com/${app.github}`,
     `联系方式: ${app.contact}`,

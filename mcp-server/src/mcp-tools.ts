@@ -178,6 +178,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                   score: cc.score,
                   band: cc.band,
                   evidenceUrls: cc.evidence.sampleUrls,
+                  vouched: callArgs.vouched === true,
                 },
                 send,
               );

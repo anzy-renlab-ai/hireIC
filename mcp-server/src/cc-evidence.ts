@@ -27,17 +27,29 @@ const REQUEST_TIMEOUT_MS = 8000;
 // human collaborator literally named Claude, or fuzzy commit-search hits.
 const CLAUDE_TRAILER_RE = /co-authored-by:\s*claude[^\n>]*<noreply@anthropic\.com>/i;
 
-// Hidden anti-spoof — NOT advertised in the API/docs. git author-dates are
-// forgeable, so a faker backdates "Claude-co-authored" commits to inflate tenure
-// /cadence. But Claude Code didn't exist before early 2025: any such commit dated
-// before this floor (or in the future) is fabricated → silently dropped. Honest
-// users (real cc commits are 2025+) are unaffected; we never tell the candidate.
+// Only count commits within the plausible window (cc-era to now). Commits dated
+// outside it are ignored as noise.
 const CC_EPOCH = Date.parse("2025-02-01T00:00:00Z");
 function plausibleCcDate(dateStr: string | undefined, now: number): boolean {
   if (!dateStr) return false;
   const t = Date.parse(dateStr);
   if (Number.isNaN(t)) return false;
-  return t >= CC_EPOCH && t <= now + 86_400_000; // not pre-cc-era, not future-dated
+  return t >= CC_EPOCH && t <= now + 86_400_000;
+}
+
+// Normalize for skewed samples: a large batch dominated by near-identical commit
+// messages or collapsed into a single day carries less signal per commit than
+// diverse work spread over time. Returns a 0.4–1 weight.
+function sampleDensity(items: SearchItem[]): number {
+  const n = items.length;
+  if (n < 8) return 1;
+  const firsts = items.map((i) => (i.commit?.message ?? "").split("\n", 1)[0]!.trim().toLowerCase());
+  const uniqRatio = new Set(firsts).size / n;
+  const days = new Set(items.map((i) => (i.commit?.author?.date ?? "").slice(0, 10))).size;
+  let k = 1;
+  if (uniqRatio < 0.4) k *= 0.6;
+  if (days <= 1) k *= 0.6;
+  return Math.max(0.4, k);
 }
 
 export async function gatherCcEvidence(
@@ -51,11 +63,9 @@ export async function gatherCcEvidence(
   const now = deps.now ?? Date.now();
 
   // Search commits authored by the candidate mentioning the anthropic noreply
-  // address (the Claude Code co-author fingerprint), newest-first. Anti-spoof +
-  // precision: git authorship is forgeable, so keep only commits whose REPO is
-  // OWNED by the candidate (can't push without access) AND whose message carries
-  // the exact trailer. (Misses cc work shipped as PRs to others' repos — a
-  // deliberate trade for trust; future PR-verified addition.)
+  // address (the Claude Code co-author fingerprint), newest-first. Keep only
+  // commits whose repo is owned by the candidate and whose message carries the
+  // exact trailer. (PR contributions to others' repos are a future addition.)
   const login = github.toLowerCase();
   const q = `author:${github} Co-authored-by Claude noreply@anthropic.com`;
   const headers: Record<string, string> = {
@@ -82,7 +92,7 @@ export async function gatherCcEvidence(
         if (
           owner === login &&
           CLAUDE_TRAILER_RE.test(it.commit?.message ?? "") &&
-          plausibleCcDate(it.commit?.author?.date, now) // hidden: drop pre-cc-era / future-dated fakes
+          plausibleCcDate(it.commit?.author?.date, now)
         ) {
           kept.push(it);
         }
@@ -114,5 +124,5 @@ export async function gatherCcEvidence(
   const spanDays = dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
   const daysSinceLast = dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
 
-  return { ccCommits: kept.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls };
+  return { ccCommits: kept.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls, density: sampleDensity(kept) };
 }
