@@ -9,25 +9,37 @@ import type { CcEvidence } from "./score.js";
 export interface EvidenceDeps {
   fetchImpl?: typeof fetch;
   token?: string;
+  now?: number; // injectable clock for deterministic recency in tests
 }
 
 interface SearchItem {
   html_url?: string;
   repository?: { full_name?: string };
-  commit?: { author?: { date?: string } };
+  commit?: { author?: { date?: string }; message?: string };
 }
 
 const REQUEST_TIMEOUT_MS = 8000;
+
+// The exact Claude Code co-author fingerprint. Searching/filtering on the
+// anthropic noreply address (not just "Claude") cuts false matches — e.g. a
+// human collaborator literally named Claude, or fuzzy commit-search hits.
+const CLAUDE_TRAILER_RE = /co-authored-by:\s*claude[^\n>]*<noreply@anthropic\.com>/i;
 
 export async function gatherCcEvidence(
   github: string,
   deps: EvidenceDeps = {},
 ): Promise<CcEvidence> {
-  const empty: CcEvidence = { ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] };
+  const empty: CcEvidence = {
+    ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: Infinity, spanDays: 0, sampleUrls: [],
+  };
   const fetchImpl = deps.fetchImpl ?? fetch;
+  const now = deps.now ?? Date.now();
 
-  // Commit search: commits authored by the candidate co-authored by Claude.
-  const q = `author:${github} Co-authored-by:Claude`;
+  // Search commits authored by the candidate that mention the anthropic noreply
+  // address (the Claude Code co-author fingerprint). The server-side query
+  // narrows; we then filter each item's message by the exact trailer regex to
+  // drop fuzzy hits (e.g. a human collaborator literally named "Claude").
+  const q = `author:${github} Co-authored-by Claude noreply@anthropic.com`;
   const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=100`;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
@@ -42,11 +54,14 @@ export async function gatherCcEvidence(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!resp.ok) return empty;
-    const json = (await resp.json()) as { total_count?: number; items?: SearchItem[] };
-    const items = Array.isArray(json.items) ? json.items : [];
+    const json = (await resp.json()) as { items?: SearchItem[] };
+    const all = Array.isArray(json.items) ? json.items : [];
+    // Precision filter: keep only commits whose message carries the exact trailer.
+    const items = all.filter((it) => CLAUDE_TRAILER_RE.test(it.commit?.message ?? ""));
     if (items.length === 0) return empty;
 
     const repos = new Set<string>();
+    const months = new Set<string>(); // YYYY-MM buckets → cadence
     const dates: number[] = [];
     const sampleUrls: string[] = [];
     for (const it of items) {
@@ -55,18 +70,23 @@ export async function gatherCcEvidence(
       const d = it.commit?.author?.date;
       if (d) {
         const t = Date.parse(d);
-        if (!Number.isNaN(t)) dates.push(t);
+        if (!Number.isNaN(t)) {
+          dates.push(t);
+          months.add(d.slice(0, 7)); // "YYYY-MM"
+        }
       }
       if (it.html_url && sampleUrls.length < 3) sampleUrls.push(it.html_url);
     }
     const spanDays =
-      dates.length >= 2
-        ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000)
-        : 0;
+      dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
+    const daysSinceLast =
+      dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
 
     return {
-      ccCommits: typeof json.total_count === "number" ? json.total_count : items.length,
+      ccCommits: items.length,
       ccRepos: repos.size,
+      activeMonths: months.size,
+      daysSinceLast,
       spanDays,
       sampleUrls,
     };

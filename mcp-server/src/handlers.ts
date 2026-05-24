@@ -45,6 +45,7 @@ export interface HandlerError {
 }
 
 export interface AgentJob {
+  id?: string; // filename slug (no .md) — lets consumers reference a specific job
   schema_version: "0.1";
   company: string;
   role_title_zh: string;
@@ -182,7 +183,7 @@ export async function listJobs(args: ListJobsArgs): Promise<ListJobsResult> {
       continue;
     }
 
-    const job = sanitizeRecord(parsed.data) as unknown as AgentJob;
+    const job = { id: file.name.replace(/\.md$/, ""), ...(sanitizeRecord(parsed.data) as Record<string, unknown>) } as unknown as AgentJob;
     if (!args.includeClosed && job.status === "closed") continue;
     jobs.push(job);
   }

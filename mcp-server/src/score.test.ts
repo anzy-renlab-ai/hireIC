@@ -1,49 +1,75 @@
 import { describe, it, expect } from "vitest";
-import { scoreCc, type CcEvidence } from "./score.js";
+import { scoreCc, type CcEvidence, type AgentProfile } from "./score.js";
 
-const base: CcEvidence = { ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] };
+const base: CcEvidence = {
+  ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: 0, spanDays: 0, sampleUrls: [],
+};
+const heavyRecentUsage: CcEvidence = {
+  ccCommits: 80, ccRepos: 6, activeMonths: 7, daysSinceLast: 10, spanDays: 210, sampleUrls: [],
+};
 
-describe("scoreCc — cc-signal from real public GitHub evidence (防君子不防小人)", () => {
-  it("no cc-coauthored activity → score 0, band none", () => {
-    const r = scoreCc(base);
-    expect(r.score).toBe(0);
-    expect(r.band).toBe("none");
+describe("scoreCc — multi-dimensional cc-signal (防君子不防小人)", () => {
+  it("nothing → score 0, band none", () => {
+    expect(scoreCc(base).score).toBe(0);
+    expect(scoreCc(base).band).toBe("none");
   });
 
-  it("a little activity → weak band, low score", () => {
-    const r = scoreCc({ ...base, ccCommits: 2, ccRepos: 1, spanDays: 5 });
+  it("a little recent usage, no extension → weak", () => {
+    const r = scoreCc({ ...base, ccCommits: 3, ccRepos: 1, activeMonths: 1, daysSinceLast: 5 });
     expect(r.band).toBe("weak");
     expect(r.score).toBeGreaterThan(0);
-    expect(r.score).toBeLessThan(40);
   });
 
-  it("sustained cross-repo activity → strong band, high score", () => {
-    const r = scoreCc({ ...base, ccCommits: 80, ccRepos: 6, spanDays: 200, sampleUrls: ["https://github.com/x/y/commit/abc"] });
+  it("KEY: heavy USER who doesn't extend cc tops out at moderate", () => {
+    const r = scoreCc(heavyRecentUsage); // no profile
+    expect(r.band).toBe("moderate");
+    expect(r.score).toBeLessThan(60);
+  });
+
+  it("KEY: heavy user who BUILDS skills/MCP reaches strong", () => {
+    const profile: AgentProfile = { skills: 3, mcpServers: 1, hasClaudeMd: true };
+    const r = scoreCc(heavyRecentUsage, profile);
     expect(r.band).toBe("strong");
-    expect(r.score).toBeGreaterThanOrEqual(70);
+    expect(r.score).toBeGreaterThan(scoreCc(heavyRecentUsage).score);
   });
 
-  it("score is capped at 100", () => {
-    const r = scoreCc({ ...base, ccCommits: 9999, ccRepos: 999, spanDays: 9999 });
-    expect(r.score).toBeLessThanOrEqual(100);
+  it("self-report ALONE (no verified usage) cannot reach strong — capped, discounted", () => {
+    const bigProfile: AgentProfile = { skills: 9, mcpServers: 5, selfAuthoredMcp: true, subagents: 5, hooks: 5, slashCommands: 9, hasClaudeMd: true };
+    const r = scoreCc(base, bigProfile);
+    expect(r.band).not.toBe("strong");
+    expect(r.score).toBeLessThanOrEqual(30);
   });
 
-  it("more activity scores higher (monotonic)", () => {
-    const lo = scoreCc({ ...base, ccCommits: 5, ccRepos: 1, spanDays: 10 });
-    const hi = scoreCc({ ...base, ccCommits: 40, ccRepos: 4, spanDays: 120 });
-    expect(hi.score).toBeGreaterThan(lo.score);
+  it("RECENCY: same footprint, stale (>1yr) scores far lower than recent", () => {
+    const recent = scoreCc({ ...heavyRecentUsage, daysSinceLast: 10 });
+    const stale = scoreCc({ ...heavyRecentUsage, daysSinceLast: 400 });
+    expect(stale.score).toBeLessThan(recent.score * 0.6);
   });
 
-  it("breadth (more repos) beats the same commits in one repo", () => {
-    const narrow = scoreCc({ ...base, ccCommits: 20, ccRepos: 1, spanDays: 30 });
-    const broad = scoreCc({ ...base, ccCommits: 20, ccRepos: 5, spanDays: 30 });
+  it("CADENCE: spread across months beats one burst", () => {
+    const burst = scoreCc({ ...base, ccCommits: 24, ccRepos: 2, activeMonths: 1, daysSinceLast: 5 });
+    const sustained = scoreCc({ ...base, ccCommits: 24, ccRepos: 2, activeMonths: 6, daysSinceLast: 5 });
+    expect(sustained.score).toBeGreaterThan(burst.score);
+  });
+
+  it("BREADTH: more repos beats one repo", () => {
+    const narrow = scoreCc({ ...base, ccCommits: 20, ccRepos: 1, activeMonths: 3, daysSinceLast: 5 });
+    const broad = scoreCc({ ...base, ccCommits: 20, ccRepos: 5, activeMonths: 3, daysSinceLast: 5 });
     expect(broad.score).toBeGreaterThan(narrow.score);
   });
 
-  it("passes the evidence through + carries an honest caveat note", () => {
-    const ev = { ccCommits: 3, ccRepos: 2, spanDays: 14, sampleUrls: ["https://github.com/a/b/commit/1"] };
-    const r = scoreCc(ev);
-    expect(r.evidence).toEqual(ev);
-    expect(r.note).toMatch(/信号|signal|防君子|verify|核/i);
+  it("score capped at 100; breakdown + honest note present", () => {
+    const r = scoreCc(
+      { ...base, ccCommits: 9999, ccRepos: 999, activeMonths: 99, daysSinceLast: 0 },
+      { skills: 99, mcpServers: 99, selfAuthoredMcp: true },
+    );
+    expect(r.score).toBeLessThanOrEqual(100);
+    expect(r.breakdown.usage).toBeGreaterThan(0);
+    expect(r.breakdown.mastery).toBeGreaterThan(0);
+    expect(r.note).toMatch(/信号|防君子|隐私|核/);
+  });
+
+  it("no profile → profile is null in result", () => {
+    expect(scoreCc(heavyRecentUsage).profile).toBeNull();
   });
 });

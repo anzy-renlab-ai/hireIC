@@ -120,47 +120,50 @@ describe("createMcpTools", () => {
   });
 });
 
-describe("apply tool — cc-signal scoring via the candidate's GitHub footprint", () => {
-  function makeApplyArgs(evidenceFn: (g: string) => Promise<{ ccCommits: number; ccRepos: number; spanDays: number; sampleUrls: string[] }>) {
-    return {
-      owner: "o",
-      repo: "r",
-      fetcher: (async () => ({ status: 404, body: null })) as Fetcher,
-      evidenceFn,
-    } satisfies CreateMcpToolsArgs;
-  }
+describe("apply tool — cc-signal scoring + delivery to the employer", () => {
+  const heavyEvidence = { ccCommits: 80, ccRepos: 6, activeMonths: 7, daysSinceLast: 10, spanDays: 210, sampleUrls: ["https://github.com/a/b/commit/1"] };
+  const evidenceFn = async () => heavyEvidence;
 
-  it("declares the apply tool requiring github", () => {
-    const { tools } = createMcpTools(makeApplyArgs(async () => ({ ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] })));
+  it("declares apply requiring github", () => {
+    const { tools } = createMcpTools(makeArgs({ evidenceFn }));
     const apply = tools.find((t) => t.name === "apply");
     expect(apply).toBeDefined();
     expect(apply!.inputSchema.required).toContain("github");
   });
 
-  it("scores a candidate from injected evidence and returns score + band + evidence", async () => {
-    const { call } = createMcpTools(makeApplyArgs(async (g) => {
-      expect(g).toBe("alicelu");
-      return { ccCommits: 80, ccRepos: 6, spanDays: 200, sampleUrls: ["https://github.com/a/b/commit/1"] };
-    }));
-    const res = await call("apply", { github: "alicelu", job_id: "renlab-ai-builder" });
-    expect(res.isError).toBeFalsy();
-    const payload = JSON.parse(res.content[0]!.text);
-    expect(payload.github).toBe("alicelu");
-    expect(payload.job_id).toBe("renlab-ai-builder");
-    expect(payload.band).toBe("strong");
-    expect(payload.cc_score).toBeGreaterThanOrEqual(70);
-    expect(payload.evidence.sampleUrls[0]).toContain("commit/1");
+  it("heavy user + extension profile → strong; emails the employer the candidate's contact", async () => {
+    let sent: { to: string; text: string } | null = null;
+    const { call } = createMcpTools(makeArgs({ evidenceFn, sendImpl: async (m) => { sent = m; return { delivered: true }; } }));
+    const res = await call("apply", { github: "alicelu", job_id: "acme", contact: "alice@example.com", profile: { skills: 3, mcpServers: 1, hasClaudeMd: true } });
+    const p = JSON.parse(res.content[0]!.text);
+    expect(p.band).toBe("strong");
+    expect(p.cc_score).toBeGreaterThanOrEqual(60);
+    expect(p.delivery.delivered).toBe(true);
+    expect(sent!.to).toBe("jobs@acme.com");           // the employer
+    expect(sent!.text).toContain("alice@example.com"); // so the recruiter can touch the candidate
   });
 
-  it("rejects an invalid github username", async () => {
-    const { call } = createMcpTools(makeApplyArgs(async () => ({ ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] })));
-    const res = await call("apply", { github: "not a username!" });
-    expect(res.isError).toBe(true);
+  it("privacy: junk fields in profile are dropped, never leak into output or email", async () => {
+    let sent: { text: string } | null = null;
+    const { call } = createMcpTools(makeArgs({ evidenceFn, sendImpl: async (m) => { sent = m; return { delivered: true }; } }));
+    const res = await call("apply", { github: "x", job_id: "acme", contact: "x@y.com", profile: { skills: 2, secretFile: "/Users/me/.env", repoName: "private-thing" } });
+    const p = JSON.parse(res.content[0]!.text);
+    expect(JSON.stringify(p)).not.toContain("secretFile");
+    expect(JSON.stringify(p)).not.toContain("private-thing");
+    expect(sent!.text).not.toContain("private-thing");
   });
 
-  it("rejects when github is missing", async () => {
-    const { call } = createMcpTools(makeApplyArgs(async () => ({ ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] })));
-    const res = await call("apply", {});
-    expect(res.isError).toBe(true);
+  it("no contact/job_id → returns the score but does not deliver", async () => {
+    const { call } = createMcpTools(makeArgs({ evidenceFn }));
+    const res = await call("apply", { github: "alicelu" });
+    const p = JSON.parse(res.content[0]!.text);
+    expect(p.cc_score).toBeGreaterThan(0);
+    expect(p.delivery.delivered).toBe(false);
+  });
+
+  it("rejects invalid or missing github", async () => {
+    const { call } = createMcpTools(makeArgs({ evidenceFn }));
+    expect((await call("apply", { github: "not a name!" })).isError).toBe(true);
+    expect((await call("apply", {})).isError).toBe(true);
   });
 });
