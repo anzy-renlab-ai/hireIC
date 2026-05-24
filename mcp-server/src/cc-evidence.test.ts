@@ -80,13 +80,37 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
     expect(ev.ccCommits).toBe(1); // only the in-era commit counts
   });
 
-  it("only hits api.github.com, queries author + the anthropic fingerprint, no redirect chasing", async () => {
+  it("only hits api.github.com, queries author + a co-author trailer, no redirect chasing", async () => {
     const cap: { url?: string; init?: RequestInit | undefined } = {};
     await gatherCcEvidence("alice-lu", { fetchImpl: stubFetch({ body, capture: cap }), now: NOW });
     expect(cap.url!.startsWith("https://api.github.com/search/commits")).toBe(true);
     const decoded = decodeURIComponent(cap.url!);
     expect(decoded).toContain("author:alice-lu");
-    expect(decoded).toContain("noreply@anthropic.com");
+    expect(decoded).toContain("Co-authored-by");
+    expect(decoded).toContain("noreply");
     expect(cap.init?.redirect).toBe("error");
+  });
+
+  it("carries non-cc code-agent codenames (e.g. Codex) without counting them as cc; ignores human privacy emails", async () => {
+    const mixed = { items: [
+      // legit cc commit → scored
+      { html_url: "c1", author: { login: "bob" }, repository: { full_name: "bob/app" }, commit: { message: "feat" + TRAILER, author: { date: "2026-03-01T00:00:00Z" } } },
+      // codex-co-authored commit in own repo → codename carried, NOT scored as cc
+      { html_url: "c2", author: { login: "bob" }, repository: { full_name: "bob/app" }, commit: { message: "fix\n\nCo-authored-by: Codex <noreply@openai.com>", author: { date: "2026-03-02T00:00:00Z" } } },
+      // GitHub human privacy email → must be ignored (not an agent)
+      { html_url: "c3", author: { login: "bob" }, repository: { full_name: "bob/app" }, commit: { message: "wip\n\nCo-authored-by: pat <1234+pat@users.noreply.github.com>", author: { date: "2026-03-03T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("bob", { fetchImpl: stubFetch({ body: mixed }), now: NOW });
+    expect(ev.ccCommits).toBe(1); // only the anthropic-signed commit is scored
+    expect(ev.coAuthors).toEqual({ Codex: 1 }); // codex codename carried; human co-author dropped
+  });
+
+  it("pure non-cc agent user (zero cc) still surfaces the codename for the employer", async () => {
+    const codexOnly = { items: [
+      { html_url: "x1", author: { login: "cara" }, repository: { full_name: "cara/svc" }, commit: { message: "build\n\nCo-authored-by: Codex <noreply@openai.com>", author: { date: "2026-03-10T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("cara", { fetchImpl: stubFetch({ body: codexOnly }), now: NOW });
+    expect(ev.ccCommits).toBe(0); // no cc footprint → score 0
+    expect(ev.coAuthors).toEqual({ Codex: 1 }); // but the employer still learns the tool
   });
 });

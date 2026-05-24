@@ -25,6 +25,7 @@ export interface CcEvidence {
   spanDays: number;
   sampleUrls: string[];
   density?: number; // internal sample-distribution normalization
+  coAuthors?: Record<string, number>; // internal: non-primary co-author tags seen (codename → count), surfaced only to the employer, stripped from candidate output
 }
 
 // Agent self-reported, privacy-safe: COUNTS and FLAGS only — never contents,
@@ -131,6 +132,7 @@ export function mergeEvidence(evs: CcEvidence[]): CcEvidence {
   const m: CcEvidence = { ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: Infinity, spanDays: 0, sampleUrls: [] };
   let density = 1;
   const urls: string[] = [];
+  const coAuthors: Record<string, number> = {};
   for (const e of evs) {
     m.ccCommits += e.ccCommits;
     m.ccRepos += e.ccRepos;
@@ -138,10 +140,12 @@ export function mergeEvidence(evs: CcEvidence[]): CcEvidence {
     m.daysSinceLast = Math.min(m.daysSinceLast, e.daysSinceLast);
     m.spanDays = Math.max(m.spanDays, e.spanDays);
     if (e.density != null) density = Math.min(density, e.density);
+    for (const [k, v] of Object.entries(e.coAuthors ?? {})) coAuthors[k] = (coAuthors[k] ?? 0) + v;
     urls.push(...e.sampleUrls);
   }
   m.sampleUrls = urls.slice(0, 3);
   m.density = density;
+  if (Object.keys(coAuthors).length) m.coAuthors = coAuthors;
   return m;
 }
 
@@ -156,7 +160,7 @@ export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
   const k = evidence.density ?? 1;
   const base = Math.min(100, usage * recency * k + mastery + localUsage + history);
   const score = Math.round(base);
-  const { density: _d, ...publicEvidence } = evidence;
+  const { density: _d, coAuthors: _c, ...publicEvidence } = evidence;
   return {
     score,
     band: bandFor(score),

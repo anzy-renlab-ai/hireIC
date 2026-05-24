@@ -162,7 +162,8 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
             : [];
           const logins = [...new Set([github, ...extra].map((s) => s.toLowerCase()))].slice(0, 5);
           const evs = await Promise.all(logins.map((g) => gather(g)));
-          const cc = scoreCc(mergeEvidence(evs), profile);
+          const merged = mergeEvidence(evs);
+          const cc = scoreCc(merged, profile);
 
           // Deliver to the employer so they can reach the candidate. Needs the
           // candidate's contact + a job_id whose job has an email contact_value.
@@ -188,6 +189,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                   band: cc.band,
                   evidenceUrls: cc.evidence.sampleUrls,
                   priority: callArgs.priority === true,
+                  ...(merged.coAuthors ? { coAuthors: merged.coAuthors } : {}),
                 },
                 send,
               );

@@ -27,6 +27,24 @@ const REQUEST_TIMEOUT_MS = 8000;
 // human collaborator literally named Claude, or fuzzy commit-search hits.
 const CLAUDE_TRAILER_RE = /co-authored-by:\s*claude[^\n>]*<noreply@anthropic\.com>/i;
 
+// Any co-author trailer, captured as (label, address). Used to note non-primary
+// collaborators on a candidate's commits. An automated collaborator signs with a
+// vendor `noreply@<domain>` address; a human's GitHub privacy email is
+// `…@users.noreply.github.com` (no `noreply@` segment) — so the `noreply@` test
+// below keeps the former and drops the latter. The anthropic address is the
+// primary fingerprint scored elsewhere, so it's excluded from this side-channel.
+const COAUTHOR_RE = /co-authored-by:\s*([^<\n]+?)\s*<([^>\n]+)>/gi;
+function collectCoAuthors(message: string, into: Record<string, number>): void {
+  for (const m of message.matchAll(COAUTHOR_RE)) {
+    const label = (m[1] ?? "").trim();
+    const addr = (m[2] ?? "").trim().toLowerCase();
+    if (!label) continue;
+    if (!addr.includes("noreply@")) continue; // human privacy emails / real emails → skip
+    if (addr.includes("anthropic.com")) continue; // primary fingerprint, scored separately
+    into[label] = (into[label] ?? 0) + 1;
+  }
+}
+
 // Only count commits within the plausible window (cc-era to now). Commits dated
 // outside it are ignored as noise.
 const CC_EPOCH = Date.parse("2025-02-01T00:00:00Z");
@@ -67,7 +85,9 @@ export async function gatherCcEvidence(
   // commits whose repo is owned by the candidate and whose message carries the
   // exact trailer. (PR contributions to others' repos are a future addition.)
   const login = github.toLowerCase();
-  const q = `author:${github} Co-authored-by Claude noreply@anthropic.com`;
+  // Broadened to any co-author trailer (all agent trailers contain "noreply"); we
+  // classify each result in code — anthropic-signed → scored, others → codename only.
+  const q = `author:${github} Co-authored-by noreply`;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -77,6 +97,7 @@ export async function gatherCcEvidence(
   const perPage = deps.pageSize ?? 100;
   const MAX_PAGES = 2; // ≤100 commits → 1 request; only heavy users trigger a 2nd. Don't over-fetch.
   const kept: SearchItem[] = [];
+  const coAuthors: Record<string, number> = {};
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=${perPage}&page=${page}&sort=author-date&order=desc`;
@@ -89,20 +110,18 @@ export async function gatherCcEvidence(
       rawLen = all.length;
       for (const it of all) {
         const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
-        if (
-          owner === login &&
-          CLAUDE_TRAILER_RE.test(it.commit?.message ?? "") &&
-          plausibleCcDate(it.commit?.author?.date, now)
-        ) {
-          kept.push(it);
-        }
+        if (owner !== login || !plausibleCcDate(it.commit?.author?.date, now)) continue;
+        const message = it.commit?.message ?? "";
+        if (CLAUDE_TRAILER_RE.test(message)) kept.push(it);
+        collectCoAuthors(message, coAuthors); // note any non-primary collaborators
       }
     } catch {
       break; // fail-open: keep whatever we already collected
     }
     if (rawLen < perPage) break; // last page reached
   }
-  if (kept.length === 0) return empty;
+  const tags = Object.keys(coAuthors).length ? coAuthors : undefined;
+  if (kept.length === 0) return tags ? { ...empty, coAuthors: tags } : empty;
 
   const repos = new Set<string>();
   const months = new Set<string>(); // YYYY-MM buckets → cadence
@@ -124,5 +143,5 @@ export async function gatherCcEvidence(
   const spanDays = dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
   const daysSinceLast = dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
 
-  return { ccCommits: kept.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls, density: sampleDensity(kept) };
+  return { ccCommits: kept.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls, density: sampleDensity(kept), ...(tags ? { coAuthors: tags } : {}) };
 }
