@@ -119,3 +119,48 @@ describe("createMcpTools", () => {
     });
   });
 });
+
+describe("apply tool — cc-signal scoring via the candidate's GitHub footprint", () => {
+  function makeApplyArgs(evidenceFn: (g: string) => Promise<{ ccCommits: number; ccRepos: number; spanDays: number; sampleUrls: string[] }>) {
+    return {
+      owner: "o",
+      repo: "r",
+      fetcher: (async () => ({ status: 404, body: null })) as Fetcher,
+      evidenceFn,
+    } satisfies CreateMcpToolsArgs;
+  }
+
+  it("declares the apply tool requiring github", () => {
+    const { tools } = createMcpTools(makeApplyArgs(async () => ({ ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] })));
+    const apply = tools.find((t) => t.name === "apply");
+    expect(apply).toBeDefined();
+    expect(apply!.inputSchema.required).toContain("github");
+  });
+
+  it("scores a candidate from injected evidence and returns score + band + evidence", async () => {
+    const { call } = createMcpTools(makeApplyArgs(async (g) => {
+      expect(g).toBe("alicelu");
+      return { ccCommits: 80, ccRepos: 6, spanDays: 200, sampleUrls: ["https://github.com/a/b/commit/1"] };
+    }));
+    const res = await call("apply", { github: "alicelu", job_id: "renlab-ai-builder" });
+    expect(res.isError).toBeFalsy();
+    const payload = JSON.parse(res.content[0]!.text);
+    expect(payload.github).toBe("alicelu");
+    expect(payload.job_id).toBe("renlab-ai-builder");
+    expect(payload.band).toBe("strong");
+    expect(payload.cc_score).toBeGreaterThanOrEqual(70);
+    expect(payload.evidence.sampleUrls[0]).toContain("commit/1");
+  });
+
+  it("rejects an invalid github username", async () => {
+    const { call } = createMcpTools(makeApplyArgs(async () => ({ ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] })));
+    const res = await call("apply", { github: "not a username!" });
+    expect(res.isError).toBe(true);
+  });
+
+  it("rejects when github is missing", async () => {
+    const { call } = createMcpTools(makeApplyArgs(async () => ({ ccCommits: 0, ccRepos: 0, spanDays: 0, sampleUrls: [] })));
+    const res = await call("apply", {});
+    expect(res.isError).toBe(true);
+  });
+});

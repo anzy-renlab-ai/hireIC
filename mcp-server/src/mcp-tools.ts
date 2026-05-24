@@ -1,4 +1,6 @@
 import { listJobs, type Fetcher, type HandlerError } from "./handlers.js";
+import { scoreCc, type CcEvidence } from "./score.js";
+import { gatherCcEvidence } from "./cc-evidence.js";
 
 const TOP_LEVEL_ERROR_KINDS = new Set<HandlerError["kind"]>([
   "network",
@@ -37,6 +39,9 @@ export interface CreateMcpToolsArgs {
   owner: string;
   repo: string;
   fetcher: Fetcher;
+  token?: string;
+  // Injectable for tests; defaults to the real GitHub commit-search gatherer.
+  evidenceFn?: (github: string) => Promise<CcEvidence>;
 }
 
 export interface McpTools {
@@ -57,6 +62,20 @@ const TOOL_DESCRIPTORS: McpToolDescriptor[] = [
           description: "Whether to include jobs with status=closed. Defaults to false.",
         },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "apply",
+    description:
+      "Apply to a hireIC job as a candidate. Pass your GitHub username; hireIC computes a cc-signal score from your PUBLIC Claude Code footprint (commits co-authored by Claude, across repos, over time) and returns it WITH evidence (commit URLs). Signal, not certification (防君子不防小人) — no public candidate profile is stored. To actually be considered, also send your GitHub + a real cc work link to the role's apply_url / contact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        github: { type: "string", description: "Your GitHub username (no @)." },
+        job_id: { type: "string", description: "Optional: the job slug you're applying to." },
+      },
+      required: ["github"],
       additionalProperties: false,
     },
   },
@@ -89,6 +108,21 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
           const topErr = hasTopLevelError(result.errors);
           if (topErr) return asError(`${topErr.kind}: ${topErr.message}`);
           return { content: [asText(result)] };
+        }
+
+        if (name === "apply") {
+          const github = callArgs.github;
+          if (typeof github !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(github)) {
+            return asError("invalid argument: github must be a valid GitHub username (no @)");
+          }
+          const jobId = typeof callArgs.job_id === "string" ? callArgs.job_id : null;
+          const gather =
+            args.evidenceFn ?? ((g: string) => gatherCcEvidence(g, args.token ? { token: args.token } : {}));
+          const evidence = await gather(github);
+          const cc = scoreCc(evidence);
+          return {
+            content: [asText({ github, job_id: jobId, cc_score: cc.score, band: cc.band, evidence: cc.evidence, note: cc.note })],
+          };
         }
 
         return asError(`unknown tool: ${name}`);

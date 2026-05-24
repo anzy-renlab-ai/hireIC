@@ -36,7 +36,7 @@ if (ref) fetcherOpts.ref = ref;
 if (token) fetcherOpts.token = token;
 
 const fetcher = makeGithubFetcher(fetcherOpts);
-const mcpTools = createMcpTools({ owner, repo, fetcher });
+const mcpTools = createMcpTools({ owner, repo, fetcher, ...(token ? { token } : {}) });
 
 const server = new Server(
   {
