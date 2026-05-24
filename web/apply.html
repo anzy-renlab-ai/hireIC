@@ -29,7 +29,7 @@
   <div class="eyebrow">// hireIC · 投递</div>
   <h1 id="role">这个职位</h1>
   <div class="co">renlab · 公司见 <a href="https://renlab.ai" target="_blank" rel="noopener">renlab.ai</a></div>
-  <div class="step">把这一行粘进你的 <b>Claude Code</b>,回车:</div>
+  <div class="step">把这一行粘进你的 <b>Claude Code</b>(或终端),<b>邮箱换成你的</b>,回车:</div>
   <div class="cmd">
     <code id="cmd">curl -fsSL https://hire.renlab.ai/cli.mjs | node -</code>
     <button id="copy">复制</button>
@@ -44,7 +44,7 @@
 <script>
   var pathJob = (location.pathname.match(/^\/j\/([\w-]+)/) || [])[1];
   var job = new URLSearchParams(location.search).get("job") || pathJob || "";
-  var cmd = "curl -fsSL https://hire.renlab.ai/cli.mjs | node -" + (job ? " " + job : "");
+  var cmd = "curl -fsSL https://hire.renlab.ai/cli.mjs | node -" + (job ? " " + job : "") + " --contact 你的邮箱";
   document.getElementById("cmd").textContent = cmd;
   if (job) document.getElementById("role").textContent = job.replace(/-\d{4}-\d{2}$/, "").replace(/-/g, " ");
   document.getElementById("copy").addEventListener("click", function () {

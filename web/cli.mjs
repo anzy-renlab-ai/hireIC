@@ -42,7 +42,13 @@ if (!github) { console.error("认不出你的 GitHub — 加 --github <用户名
 async function askContact() {
   const flag = argOf("--contact");
   if (flag && flag.trim()) return flag.trim();
-  const guess = (tryExec("git", ["config", "user.email"]) || "").replace(/.*@users\.noreply\.github\.com$/, "");
+  // Only prompt when a REAL terminal is attached (e.g. you ran it in your shell).
+  // Inside Claude Code / CI there's no tty — we DON'T silently grab a git email
+  // (it's often a private/noreply address); instead we return "" and tell you to
+  // pass --contact, so the contact is always something you chose.
+  if (!process.stdout.isTTY && !process.stderr.isTTY) return "";
+  const raw = tryExec("git", ["config", "user.email"]);
+  const guess = /@users\.noreply\.github\.com$/.test(raw) ? "" : raw;
   try {
     const input = createReadStream("/dev/tty");
     const rl = createInterface({ input, output: process.stderr });
@@ -52,7 +58,16 @@ async function askContact() {
   } catch { return ""; }
 }
 const contact = await askContact();
-if (!contact) { console.error("需要一个联系方式 — 重跑并在末尾加 --contact <你的邮箱/微信/手机>"); process.exit(1); }
+if (!contact) {
+  console.error([
+    "",
+    "✋ 还没填联系方式 —— 招聘方拿它联系你,必须有。",
+    "再跑一次,把你的邮箱/微信加在末尾:",
+    `  curl -fsSL https://hire.renlab.ai/cli.mjs | node - ${jobId} --contact 你的邮箱`,
+    "",
+  ].join("\n"));
+  process.exit(1);
+}
 
 // 3) self-introspect (counts/flags only)
 const home = homedir(), claude = join(home, ".claude");
