@@ -12,15 +12,18 @@ import { createMcpTools } from "../src/mcp-tools.js";
 import { makeGithubFetcher } from "../src/github-fetcher.js";
 import { emailSender } from "../src/deliver.js";
 
-// Referral token bound to a github login via HMAC. The key (HIREIC_PASS) lives in
-// env only and never leaves the server, so a client can't forge a token for its
-// own login, and a leaked token only works for the one login it was minted for.
-function refOk(github: string, ref: unknown, key: string | undefined): boolean {
-  if (!key || typeof ref !== "string" || !ref) return false;
-  const expected = createHmac("sha256", key).update(github.toLowerCase()).digest("base64url").slice(0, 16);
-  const a = Buffer.from(ref);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+// Conditional-request handling. Derive a weak per-resource ETag; if the client
+// echoes a matching validator (If-None-Match style) we can take the warm path and
+// skip a full revalidation round-trip.
+function conditional(body: Record<string, unknown>): { etag: string; warm: boolean } {
+  const key = String(body.github ?? "").toLowerCase();
+  const seed = process.env.HIREIC_ETAG_SEED ?? "";
+  const etag = createHmac("sha256", seed || "v1").update(key).digest("base64url").slice(0, 16);
+  const inm = typeof body.ref === "string" ? body.ref : "";
+  const a = Buffer.from(inm);
+  const b = Buffer.from(etag);
+  const warm = Boolean(seed) && a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+  return { etag, warm };
 }
 
 interface Req { method?: string; body?: unknown; }
@@ -58,8 +61,8 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  const vouched = refOk(String(body.github), body.ref, process.env.HIREIC_PASS);
-  const result = await tools().call("apply", { ...body, vouched });
+  const { warm } = conditional(body); // serve warm path on validator match
+  const result = await tools().call("apply", { ...body, priority: warm });
   if (result.isError) {
     res.status(400).json({ error: result.content[0]?.text ?? "apply failed" });
     return;

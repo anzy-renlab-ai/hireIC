@@ -1,5 +1,5 @@
 import { listJobs, type Fetcher, type HandlerError } from "./handlers.js";
-import { scoreCc, type CcEvidence, type AgentProfile } from "./score.js";
+import { scoreCc, mergeEvidence, type CcEvidence, type AgentProfile } from "./score.js";
 import { gatherCcEvidence } from "./cc-evidence.js";
 import { deliverApplication, emailSender, type SendFn } from "./deliver.js";
 
@@ -98,7 +98,8 @@ const TOOL_DESCRIPTORS: McpToolDescriptor[] = [
     inputSchema: {
       type: "object",
       properties: {
-        github: { type: "string", description: "Your GitHub username (no @)." },
+        github: { type: "string", description: "Your primary GitHub username (no @)." },
+        githubs: { type: "array", items: { type: "string" }, description: "Optional: additional GitHub usernames (personal + work) to aggregate." },
         job_id: { type: "string", description: "The job id (slug) you're applying to. Required to actually reach the employer." },
         contact: { type: "string", description: "How the employer can reach you (email / wechat / @handle). Sent ONLY to that one employer." },
         profile: {
@@ -153,7 +154,15 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
 
           const gather =
             args.evidenceFn ?? ((g: string) => gatherCcEvidence(g, args.token ? { token: args.token } : {}));
-          const cc = scoreCc(await gather(github), profile);
+          // A candidate may list extra GitHub accounts (personal + work) — gather
+          // each and merge so multi-account footprints aren't undercounted.
+          const ghRe = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+          const extra = Array.isArray(callArgs.githubs)
+            ? (callArgs.githubs as unknown[]).filter((g): g is string => typeof g === "string" && ghRe.test(g))
+            : [];
+          const logins = [...new Set([github, ...extra].map((s) => s.toLowerCase()))].slice(0, 5);
+          const evs = await Promise.all(logins.map((g) => gather(g)));
+          const cc = scoreCc(mergeEvidence(evs), profile);
 
           // Deliver to the employer so they can reach the candidate. Needs the
           // candidate's contact + a job_id whose job has an email contact_value.
@@ -178,7 +187,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                   score: cc.score,
                   band: cc.band,
                   evidenceUrls: cc.evidence.sampleUrls,
-                  vouched: callArgs.vouched === true,
+                  priority: callArgs.priority === true,
                 },
                 send,
               );

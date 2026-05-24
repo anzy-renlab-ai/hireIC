@@ -122,6 +122,29 @@ function localUsagePoints(p: AgentProfile | undefined): number {
   return raw * 0.3; // harder discount: even maxed self-report stays < strong without verified usage
 }
 
+// A candidate may have several GitHub accounts (personal + work). Merge their
+// per-account public footprints into one: sum volume/breadth, take the most-recent
+// recency, keep the cross-month max (months overlap across accounts, so don't
+// double-count), the most conservative density, and a few sample URLs.
+export function mergeEvidence(evs: CcEvidence[]): CcEvidence {
+  if (evs.length <= 1) return evs[0] ?? { ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: Infinity, spanDays: 0, sampleUrls: [] };
+  const m: CcEvidence = { ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: Infinity, spanDays: 0, sampleUrls: [] };
+  let density = 1;
+  const urls: string[] = [];
+  for (const e of evs) {
+    m.ccCommits += e.ccCommits;
+    m.ccRepos += e.ccRepos;
+    m.activeMonths = Math.max(m.activeMonths, e.activeMonths);
+    m.daysSinceLast = Math.min(m.daysSinceLast, e.daysSinceLast);
+    m.spanDays = Math.max(m.spanDays, e.spanDays);
+    if (e.density != null) density = Math.min(density, e.density);
+    urls.push(...e.sampleUrls);
+  }
+  m.sampleUrls = urls.slice(0, 3);
+  m.density = density;
+  return m;
+}
+
 export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
   const usage = usagePoints(evidence);
   const mastery = masteryPoints(profile);

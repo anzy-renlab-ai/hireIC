@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreCc, type CcEvidence, type AgentProfile } from "./score.js";
+import { scoreCc, mergeEvidence, type CcEvidence, type AgentProfile } from "./score.js";
 
 const base: CcEvidence = {
   ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: 0, spanDays: 0, sampleUrls: [],
@@ -93,5 +93,21 @@ describe("scoreCc — private / non-GitHub work via agent local self-report", ()
     const noLocal = scoreCc(heavyRecentUsage);
     const withLocal = scoreCc(heavyRecentUsage, { localCcCommits: 50, localCcRepos: 4, localCcMonths: 6 });
     expect(withLocal.score).toBeGreaterThan(noLocal.score);
+  });
+});
+
+describe("mergeEvidence — multiple GitHub accounts", () => {
+  it("sums volume/breadth, takes most-recent recency, max months", () => {
+    const a: CcEvidence = { ccCommits: 30, ccRepos: 2, activeMonths: 3, daysSinceLast: 40, spanDays: 60, sampleUrls: ["x"] };
+    const b: CcEvidence = { ccCommits: 20, ccRepos: 3, activeMonths: 2, daysSinceLast: 5, spanDays: 30, sampleUrls: ["y"] };
+    const m = mergeEvidence([a, b]);
+    expect(m.ccCommits).toBe(50);
+    expect(m.ccRepos).toBe(5);
+    expect(m.activeMonths).toBe(3);
+    expect(m.daysSinceLast).toBe(5);
+  });
+  it("single-element passthrough", () => {
+    const a: CcEvidence = { ccCommits: 1, ccRepos: 1, activeMonths: 1, daysSinceLast: 1, spanDays: 1, sampleUrls: [] };
+    expect(mergeEvidence([a])).toBe(a);
   });
 });
