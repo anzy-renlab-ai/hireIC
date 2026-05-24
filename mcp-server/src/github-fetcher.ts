@@ -62,12 +62,19 @@ export function makeGithubFetcher(options: GithubFetcherOptions): Fetcher {
         if (entry.content != null) {
           // Single-file fetches inline content (base64).
           content = entry.encoding === "base64" ? decodeBase64Content(entry.content) : entry.content;
-        } else if (entry.download_url) {
-          // Directory listings omit content — fetch the raw file. Public repo, so
-          // no token needed on the raw host.
+        } else {
+          // Directory listings omit `content`. Fetch the individual file via the
+          // Contents API (api.github.com, token-authed) — reflects pushes immediately
+          // and works for private repos; NOT raw.githubusercontent (CDN-laggy).
           try {
-            const raw = await fetch(entry.download_url);
-            if (raw.status === 200) content = await raw.text();
+            const fileUrl = `https://api.github.com/repos/${options.owner}/${options.repo}/contents/${path}/${entry.name}?ref=${encodeURIComponent(ref)}`;
+            const fr = await fetch(fileUrl, { headers });
+            if (fr.status === 200) {
+              const fj = (await fr.json()) as GithubContentsEntry;
+              if (fj.content != null) {
+                content = fj.encoding === "base64" ? decodeBase64Content(fj.content) : fj.content;
+              }
+            }
           } catch {
             // skip this file on transient error
           }
