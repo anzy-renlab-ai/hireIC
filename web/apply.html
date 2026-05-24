@@ -29,14 +29,14 @@
   <div class="co">renlab · 公司见 <a href="https://renlab.ai" target="_blank" rel="noopener">renlab.ai</a></div>
   <div class="step">把这一行粘进你的 <b>Claude Code</b>,回车:</div>
   <div class="cmd">
-    <code id="cmd">npx hireic apply</code>
+    <code id="cmd">curl -fsSL https://hire.renlab.ai/cli.mjs | node -</code>
     <button id="copy">复制</button>
   </div>
   <div class="fine">它会<b>自动</b>认出你的 GitHub、盘点你真实的 cc 足迹(本地的只数数量、不外传内容)、提交。招聘方收到带证据的评估后直接联系你。<b>不看简历,看你真用 Claude Code 的痕迹。</b></div>
 </div>
 <script>
   var job = new URLSearchParams(location.search).get("job") || "";
-  var cmd = "npx hireic apply" + (job ? " " + job : "");
+  var cmd = "curl -fsSL https://hire.renlab.ai/cli.mjs | node -" + (job ? " " + job : "");
   document.getElementById("cmd").textContent = cmd;
   if (job) document.getElementById("role").textContent = job.replace(/-\d{4}-\d{2}$/, "").replace(/-/g, " ");
   document.getElementById("copy").addEventListener("click", function () {
