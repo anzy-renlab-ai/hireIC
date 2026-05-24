@@ -7,9 +7,21 @@
 // Body: { github, contact?, job_id?, profile? }
 // Env:  HIREIC_OWNER, HIREIC_REPO, HIREIC_TOKEN, HIREIC_RESEND_KEY, HIREIC_FROM
 
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createMcpTools } from "../src/mcp-tools.js";
 import { makeGithubFetcher } from "../src/github-fetcher.js";
 import { emailSender } from "../src/deliver.js";
+
+// Referral token bound to a github login via HMAC. The key (HIREIC_PASS) lives in
+// env only and never leaves the server, so a client can't forge a token for its
+// own login, and a leaked token only works for the one login it was minted for.
+function refOk(github: string, ref: unknown, key: string | undefined): boolean {
+  if (!key || typeof ref !== "string" || !ref) return false;
+  const expected = createHmac("sha256", key).update(github.toLowerCase()).digest("base64url").slice(0, 16);
+  const a = Buffer.from(ref);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 interface Req { method?: string; body?: unknown; }
 interface Res {
@@ -46,8 +58,7 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  const pass = process.env.HIREIC_PASS;
-  const vouched = !!(pass && typeof body.ref === "string" && body.ref === pass);
+  const vouched = refOk(String(body.github), body.ref, process.env.HIREIC_PASS);
   const result = await tools().call("apply", { ...body, vouched });
   if (result.isError) {
     res.status(400).json({ error: result.content[0]?.text ?? "apply failed" });
