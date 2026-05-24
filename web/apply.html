@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>投递 · hireIC</title>
+<style>
+  :root{--bg:#f7f6f3;--surface:#fff;--ink:#16140f;--ink-2:#5b574e;--ink-3:#8b867a;--line:#e7e3da;--line-2:#d8d3c7;--accent:#d6431f;--accent-soft:#fbe9e3;--ok:#1f7a4d;--mono:"SFMono-Regular",ui-monospace,Menlo,monospace;--sans:Inter,-apple-system,"Segoe UI",system-ui,"PingFang SC",sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;display:grid;place-items:center;min-height:100vh;padding:24px}
+  .card{max-width:560px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:34px}
+  .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.05em;margin-bottom:14px}
+  h1{font-size:24px;letter-spacing:-.02em;margin-bottom:6px}
+  .co{color:var(--ink-2);font-size:14px;margin-bottom:24px}
+  .co a{color:var(--accent)}
+  .step{color:var(--ink-2);font-size:15px;margin-bottom:12px}
+  .cmd{display:flex;align-items:center;gap:10px;background:#1c1a16;border-radius:10px;padding:14px 16px;margin:6px 0 18px}
+  .cmd code{font-family:var(--mono);font-size:14px;color:#e8e4da;flex:1;word-break:break-all}
+  .cmd button{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .cmd button.done{background:var(--ok)}
+  .fine{color:var(--ink-3);font-size:13px;line-height:1.55}
+  .fine b{color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">// hireIC · 投递</div>
+  <h1 id="role">这个职位</h1>
+  <div class="co">renlab · 公司见 <a href="https://renlab.ai" target="_blank" rel="noopener">renlab.ai</a></div>
+  <div class="step">把这一行粘进你的 <b>Claude Code</b>,回车:</div>
+  <div class="cmd">
+    <code id="cmd">npx hireic apply</code>
+    <button id="copy">复制</button>
+  </div>
+  <div class="fine">它会<b>自动</b>认出你的 GitHub、盘点你真实的 cc 足迹(本地的只数数量、不外传内容)、提交。招聘方收到带证据的评估后直接联系你。<b>不看简历,看你真用 Claude Code 的痕迹。</b></div>
+</div>
+<script>
+  var job = new URLSearchParams(location.search).get("job") || "";
+  var cmd = "npx hireic apply" + (job ? " " + job : "");
+  document.getElementById("cmd").textContent = cmd;
+  if (job) document.getElementById("role").textContent = job.replace(/-\d{4}-\d{2}$/, "").replace(/-/g, " ");
+  document.getElementById("copy").addEventListener("click", function () {
+    navigator.clipboard && navigator.clipboard.writeText(cmd);
+    var b = document.getElementById("copy"); b.textContent = "已复制 ✓"; b.className = "done";
+    setTimeout(function () { b.textContent = "复制"; b.className = ""; }, 1500);
+  });
+</script>
+</body>
+</html>

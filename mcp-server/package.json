@@ -4,7 +4,8 @@
   "description": "MCP server for hireIC. Exposes list_jobs and list_candidates from any hireIC-compatible GitHub repo.",
   "type": "module",
   "bin": {
-    "hireic-mcp": "./dist/local.js"
+    "hireic-mcp": "./dist/local.js",
+    "hireic": "./bin/hireic.mjs"
   },
   "files": [
     "dist",
