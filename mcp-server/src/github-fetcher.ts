@@ -13,6 +13,7 @@ interface GithubContentsEntry {
   type: "file" | "dir" | "symlink" | "submodule";
   content?: string | null;
   encoding?: string;
+  download_url?: string | null; // raw URL — directory listings omit `content`, so we fetch this
 }
 
 interface CacheEntry {
@@ -57,11 +58,21 @@ export function makeGithubFetcher(options: GithubFetcherOptions): Fetcher {
       const files: RawFile[] = [];
       for (const entry of entries) {
         if (entry.type !== "file") continue;
-        if (entry.content == null) continue;
-        const content =
-          entry.encoding === "base64"
-            ? decodeBase64Content(entry.content)
-            : entry.content;
+        let content: string | null = null;
+        if (entry.content != null) {
+          // Single-file fetches inline content (base64).
+          content = entry.encoding === "base64" ? decodeBase64Content(entry.content) : entry.content;
+        } else if (entry.download_url) {
+          // Directory listings omit content — fetch the raw file. Public repo, so
+          // no token needed on the raw host.
+          try {
+            const raw = await fetch(entry.download_url);
+            if (raw.status === 200) content = await raw.text();
+          } catch {
+            // skip this file on transient error
+          }
+        }
+        if (content == null) continue;
         files.push({ name: entry.name, content });
       }
       const result: FetchResult = { status: 200, body: files };

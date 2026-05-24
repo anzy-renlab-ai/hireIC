@@ -3,8 +3,12 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
-    "types": ["node"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -20,6 +24,14 @@
     "sourceMap": true,
     "outDir": "./dist"
   },
-  "include": ["mcp-server/src/**/*", "tests/**/*", "schemas/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "mcp-server/src/**/*",
+    "mcp-server/api/**/*",
+    "tests/**/*",
+    "schemas/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

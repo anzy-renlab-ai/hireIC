@@ -1,17 +1,9 @@
 import matter from "gray-matter";
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Schemas live at the repo root. In a published package, they'd be bundled into dist/.
-// For now we read them from disk relative to this file (works in tests + dev).
-const jobsSchema = JSON.parse(
-  readFileSync(resolve(__dirname, "../../schemas/agent-jobs.schema.json"), "utf-8"),
-);
+// Bundled JSON (esbuild/tsx inline it) so this works in tests AND serverless,
+// where there's no repo-root schemas/ dir on disk.
+import jobsSchema from "./agent-jobs.schema.json" with { type: "json" };
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
