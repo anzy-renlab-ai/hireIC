@@ -1,58 +1,11 @@
 # hireIC Schema v0.1
 
-人读的字段规范. 机器读的版本是 [`schemas/agent-cv.schema.json`](./schemas/agent-cv.schema.json)
-和 [`schemas/agent-jobs.schema.json`](./schemas/agent-jobs.schema.json) (JSON Schema Draft 2020-12),
+人读的字段规范. 机器读的版本是
+[`schemas/agent-jobs.schema.json`](./schemas/agent-jobs.schema.json) (JSON Schema Draft 2020-12),
 两个版本字段必须一致.
 
-每一份 candidate / job 都是 `candidates/<github>.md` 或 `jobs/<slug>.md`,
-首部是 YAML frontmatter (本文档定义的字段), 后面是 markdown body (自由文本).
-Agent 和聚合器只读 frontmatter, body 给人看.
-
----
-
-## agent-cv (候选人)
-
-文件路径: `candidates/<github_username>.md`
-
-### 必填字段 (Required)
-
-| 字段 | 类型 | 说明 | 例 |
-|---|---|---|---|
-| `schema_version` | `"0.1"` (字符串字面量) | 协议版本. v0 时只接受 `"0.1"`. | `"0.1"` |
-| `github_username` | string, 1-39 字符, `[A-Za-z0-9-]+` | GitHub 登录名 (不带 @), 必须真实存在. 文件名也由此而来. | `alicelu` |
-| `cc_experience_months` | integer, 0-600 | 用 Claude Code (或同类 agent) 当日常 driver 多少个月. | `12` |
-| `evidence_url` | URL, `http(s)://...` | 一条**公开可访问**的证据, 证明候选人 cc 用得好. 不接受 LinkedIn 资料/微博等需登录的链接. | `https://github.com/alicelu/proj/pull/42` |
-| `contact_mode` | enum `public` / `hidden` | 联系方式公开度. `hidden` 用于在职大厂员工. | `public` |
-| `contact_value` | string, 1-200 | `public`: 真实邮箱/微信ID/Twitter handle. `hidden`: `relay-pending` (founder 后期签发 `relay-<github>@hireic.<domain>` alias). | `alice@example.com` |
-
-### 可选字段 (Optional)
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `bio_zh` | string, ≤500 字符 | 中文一句话介绍. 别写营销词. |
-| `bio_en` | string, ≤500 字符 | 英文版. |
-| `looking_for` | enum | `full-time` / `contract` / `open-to-talk` / `not-looking`. |
-| `salary_range_rmb` | string, ≤50 字符 | 自由格式, e.g. `40-60k/mo` 或 `600-900k/yr`. |
-| `location` | string, ≤100 字符 | 城市 / 远程偏好. |
-| `referrer_github` | string, 同 github_username 规则 | 推荐人 GitHub username. 必须搭配 `referrer_evidence_pr_url`. |
-| `referrer_evidence_pr_url` | URL | 推荐人附的"我见过这人 cc 用得好"的具体 PR/repo. |
-| `agent_stack` | string, ≤200 字符 | 主用工具. e.g. `cc + Cursor + 自建 MCP server`. |
-| `available_from` | string (YYYY-MM-DD) | 可入职日期. |
-
-### Hidden mode 详解
-
-候选人选 `contact_mode: hidden` 表示**不想公开真实联系方式**, 典型是在职大厂员工不希望搜得到.
-
-流程:
-1. 候选人提交 issue, `contact_value` 填 `relay-pending` (或任何值, validator 会强制改写)
-2. founder /approve → candidate 文件落 main, `contact_value: relay-pending`
-3. 招聘方在 MCP / repo 看到 candidate 想联系
-4. founder 手动签发 alias: 在 [CF Email Routing](https://developers.cloudflare.com/email-routing/) 配置
-   `relay-<github>@hireic.<domain>` → 转发到 founder 邮箱
-5. 招聘方写信到 alias → 转 founder → founder 询问候选人是否愿意公开 → 候选人同意后转
-6. 候选人主动回复, 双方点对点
-
-founder 是 hub 但只在第一次配 alias 时介入, 后续邮件自动转发, 不阻塞.
+每一份 job 都是 `jobs/<slug>.md`, 首部是 YAML frontmatter (本文档定义的字段),
+后面是 markdown body (自由文本). Agent 和聚合器只读 frontmatter, body 给人看.
 
 ---
 
@@ -69,7 +22,7 @@ founder 是 hub 但只在第一次配 alias 时介入, 后续邮件自动转发,
 | `role_title_zh` | string, 1-200 字符 | 中文职位名. **必填** (主受众中文). | `全栈工程师 (cc-fluent)` |
 | `cc_required` | boolean | **必须 `true`**. cc 只是加分项的职位不接受 (走 LinkedIn / Boss). | `true` |
 | `apply_url` | URL | 投递链接. 公司主页 / 招聘网站 / 个人邮箱皆可, 必须是 URL. | `https://acme.com/jobs/123` |
-| `contact_value` | string, 1-200 字符 | 招聘方联系方式. 不走 hidden mode (招聘方默认公开). | `jobs@acme.com` |
+| `contact_value` | string, 1-200 字符 | 招聘方联系方式, 默认公开. | `jobs@acme.com` |
 
 ### 可选字段 (Optional)
 
@@ -116,29 +69,17 @@ JSON Schema (`schemas/*.schema.json`) 是 canonical. SCHEMA.md (本文档) 和 I
 
 如果你是一个 agent (Claude / Cursor / 别的), 你正在读 hireIC 数据, 注意:
 
-- `contact_mode: hidden` 的候选人, **不要**尝试从 `evidence_url` / `referrer_evidence_pr_url`
-  反推真实邮箱或姓名. 这是协议合约的一部分: 联系方式只能走 relay alias.
-- `cc_experience_months` 是自报数字, 不是认证. **必须配合 `evidence_url` 内容判断**.
-  若 evidence 中的 git 历史跨度短于 `cc_experience_months` 月, 视为不可信.
-- 推荐人字段 (`referrer_*`) 若存在, 视为 +1 信号但不替代候选人本人证据.
-- 不要把 hireIC profile 字段对应到公司 ATS 系统的字段, 这是不同模型. 用 `apply_url`
-  指引候选人投递, 不要尝试代投.
+- hireIC 只发布职位, 没有候选人 profile. 用 `apply_url` / `contact_value` 指引人去投递,
+  投递走招聘方自己的渠道, 不要尝试代投.
+- `cc_required` 恒为 `true`: 这里的职位都**要求** cc 熟练度, 不是把 cc 当加分项.
+- 不要把 hireIC job 字段对应到公司 ATS 系统的字段, 这是不同模型.
 
 ### 校验只管格式, 不管真假 (advisory 层)
 
 机器校验 (`validate.yml`) 只验**格式**: 字段齐不齐、类型对不对、有没有 PII. 它**不**判断
-内容真假——`github_username` 可填不存在的名、`evidence_url` 可贴跟自己无关的 repo、
-`cc_experience_months` 可填到上限. 这些都会**校验通过**.
-
-为减轻 founder 人工核验负担, validator 在通过时附带几条 **advisory 警告** (⚠️, 不影响
-通过, 仅供 founder `/approve` 前参考):
-
-- `cc_experience_months` 超过 60 (~5 年, 早于任何 agent 编码工具问世) → 提醒对照 evidence git 历史.
-- `github_username` 在 GitHub 查无此人 (定性 404) → 提醒可能笔误或冒用.
-
-网络检查一律 **fail-open**: 限流/超时/5xx 不报警, 只在定性 404 才提示, 绝不因网络抖动
-误拒真候选人. 真伪的最终判断仍在 founder 和下游消费 agent.
+内容真假——`company` 可填假名、`apply_url` 可贴任意链接. 这些都会**校验通过**.
+真伪的最终判断仍在 founder `/approve` 时人工过目和下游消费 agent.
 
 **安全约束**: validator 只请求固定可信 host (`api.github.com`), **绝不**在服务端抓取
-用户提供的 URL (如 `evidence_url`)——那是 SSRF, 攻击者可让 CI runner 去打内网/元数据
-端点. `evidence_url` 的可达性由 founder 在 `/approve` 时人工过目, 不做自动抓取.
+用户提供的 URL (如 `apply_url`)——那是 SSRF, 攻击者可让 CI runner 去打内网/元数据
+端点. `apply_url` 的可达性由 founder 在 `/approve` 时人工过目, 不做自动抓取.

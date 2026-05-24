@@ -1,6 +1,6 @@
 # Contributing to hireIC
 
-hireIC 是协议优先项目. 大多数"contribution"是发 candidate / job (通过
+hireIC 是协议优先项目. 大多数"contribution"是发职位 (通过
 [Issue Forms](../../issues/new/choose)), 不是 PR.
 
 本文档面向想动 schema / scripts / workflows 的人.
@@ -14,7 +14,6 @@ hireIC/
 ├── README.md
 ├── SCHEMA.md                          # 人读 schema 规范
 ├── schemas/                           # JSON Schema (canonical)
-│   ├── agent-cv.schema.json
 │   └── agent-jobs.schema.json
 ├── mcp-server/                        # MCP server (npx + 未来 Workers)
 │   ├── src/handlers.ts                # 核心读 markdown 逻辑
@@ -25,14 +24,13 @@ hireIC/
 │   ├── issue-parser.ts                # GH Issue Form 解析 + payload 校验 + PII 检测
 │   ├── bot-comments.ts                # 友好报错 / 成功 / PII 拒绝评论模板
 │   ├── validate-issue.ts              # validate.yml 调用
-│   ├── md-generator.ts                # 生成 candidates/<x>.md, jobs/<x>.md
+│   ├── md-generator.ts                # 生成 jobs/<x>.md
 │   ├── convert-issue.ts               # /approve 判定逻辑
 │   ├── convert-runner.ts              # convert-to-pr.yml 调用
 │   ├── update-counts.ts               # README counter 重建逻辑
 │   └── update-counts-runner.ts        # update-counts.yml 调用
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
-│   │   ├── candidate.yml
 │   │   ├── job.yml
 │   │   └── config.yml
 │   ├── PULL_REQUEST_TEMPLATE.md
@@ -41,7 +39,6 @@ hireIC/
 │       ├── convert-to-pr.yml          # /approve → 转成 markdown 文件 + auto-merge
 │       └── update-counts.yml          # main 合并 → README counter 重算
 ├── jobs/                              # 真实职位 (自动维护)
-├── candidates/                        # 真实候选人 (自动维护)
 └── tests/                             # 单元 + 集成测试
     ├── schema/
     └── workflows/
@@ -80,9 +77,9 @@ hireIC/
 
 schema 是 hireIC 的 IP. 改动:
 
-1. 改 `schemas/*.schema.json`
+1. 改 `schemas/agent-jobs.schema.json`
 2. 同步 `SCHEMA.md`
-3. 同步 `.github/ISSUE_TEMPLATE/{candidate,job}.yml`
+3. 同步 `.github/ISSUE_TEMPLATE/job.yml`
 4. 同步 `scripts/issue-parser.ts` 的字段 map + TypeScript types
 5. 同步 `mcp-server/src/handlers.ts` 的 TypeScript types
 6. 全 `npx vitest run` 跑一遍, 必须全绿

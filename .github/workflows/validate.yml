@@ -17,7 +17,7 @@ concurrency:
 jobs:
   validate:
     # Only run for our two Issue Form kinds. Skip on labels we don't recognize.
-    if: contains(github.event.issue.labels.*.name, 'candidate') || contains(github.event.issue.labels.*.name, 'job')
+    if: contains(github.event.issue.labels.*.name, 'job')
     runs-on: ubuntu-latest
 
     steps:

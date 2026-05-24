@@ -1,6 +1,6 @@
-<!-- 招聘 / 应聘者: 不要直接开 PR. 走 Issue Forms:
-     - 候选人申请: https://github.com/anzy-renlab-ai/hireIC/issues/new?template=candidate.yml
-     - 发布职位:   https://github.com/anzy-renlab-ai/hireIC/issues/new?template=job.yml
+<!-- 招聘方: 不要直接开 PR. 发布职位走 Issue Form:
+     https://github.com/anzy-renlab-ai/hireIC/issues/new?template=job.yml
+     候选人不在此投递 — 通过职位上的 apply_url / 联系方式直接联系招聘方.
      这个 PR 模板是给改 schema / scripts / workflows 的 contributor 用的. -->
 
 ## 改了什么

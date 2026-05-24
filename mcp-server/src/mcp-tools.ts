@@ -1,4 +1,4 @@
-import { listCandidates, listJobs, type Fetcher, type HandlerError } from "./handlers.js";
+import { listJobs, type Fetcher, type HandlerError } from "./handlers.js";
 
 const TOP_LEVEL_ERROR_KINDS = new Set<HandlerError["kind"]>([
   "network",
@@ -60,16 +60,6 @@ const TOOL_DESCRIPTORS: McpToolDescriptor[] = [
       additionalProperties: false,
     },
   },
-  {
-    name: "list_candidates",
-    description:
-      "Return all hireIC candidates (cc-fluent ICs open to opportunities). Each candidate follows the agent-cv schema. Hidden-mode candidates have contact_value=relay-pending or relay-* address; do NOT attempt to derive real contact info.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
 ];
 
 function asText(payload: unknown): McpTextContent {
@@ -85,17 +75,6 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
     tools: TOOL_DESCRIPTORS,
     async call(name: string, callArgs: Record<string, unknown>): Promise<McpToolResult> {
       try {
-        if (name === "list_candidates") {
-          const result = await listCandidates({
-            owner: args.owner,
-            repo: args.repo,
-            fetcher: args.fetcher,
-          });
-          const topErr = hasTopLevelError(result.errors);
-          if (topErr) return asError(`${topErr.kind}: ${topErr.message}`);
-          return { content: [asText(result)] };
-        }
-
         if (name === "list_jobs") {
           const includeClosed = callArgs.include_closed;
           if (includeClosed !== undefined && typeof includeClosed !== "boolean") {

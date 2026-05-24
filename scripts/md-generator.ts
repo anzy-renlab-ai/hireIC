@@ -5,7 +5,7 @@
 
 import { stringify as yamlStringify } from "yaml";
 import { pinyin } from "pinyin-pro";
-import type { CandidatePayload, JobPayload } from "./issue-parser.js";
+import type { JobPayload } from "./issue-parser.js";
 
 const MAX_FILENAME_LEN = 80;
 
@@ -23,10 +23,6 @@ function ymPart(date: Date): string {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
   return `${y}-${m}`;
-}
-
-export function candidateFilename(payload: Pick<CandidatePayload, "github_username">): string {
-  return `${payload.github_username.toLowerCase()}.md`;
 }
 
 export function jobFilename(payload: JobPayload, now: Date = new Date()): string {
@@ -49,38 +45,7 @@ function buildFrontmatter(data: Record<string, unknown>): string {
   return `---\n${body}---\n`;
 }
 
-const AUTO_GENERATED_NOTE_ZH = `> 这份 profile 由 hireIC 自动生成 (从 founder-approved issue 转换). 字段定义见 [SCHEMA.md](../SCHEMA.md). 不要手改 frontmatter, 改请编辑对应的 issue.`;
-
 const AUTO_GENERATED_NOTE_JOB = `> 这份职位由 hireIC 自动生成. 字段定义见 [SCHEMA.md](../SCHEMA.md). 投递走 \`apply_url\`, 不要在此 repo issue 投简历.`;
-
-export function generateCandidateMarkdown(payload: CandidatePayload): string {
-  // Build object with only present fields, in deterministic order.
-  const data: Record<string, unknown> = {
-    schema_version: payload.schema_version,
-    github_username: payload.github_username,
-    cc_experience_months: payload.cc_experience_months,
-    evidence_url: payload.evidence_url,
-    contact_mode: payload.contact_mode,
-    contact_value: payload.contact_value,
-  };
-  const optionalKeys: Array<keyof CandidatePayload> = [
-    "bio_zh",
-    "bio_en",
-    "looking_for",
-    "salary_range_rmb",
-    "location",
-    "referrer_github",
-    "referrer_evidence_pr_url",
-    "agent_stack",
-    "available_from",
-  ];
-  for (const k of optionalKeys) {
-    const v = payload[k];
-    if (v !== undefined && v !== "") data[k] = v;
-  }
-
-  return `${buildFrontmatter(data)}\n${AUTO_GENERATED_NOTE_ZH}\n`;
-}
 
 export function generateJobMarkdown(payload: JobPayload): string {
   const data: Record<string, unknown> = {

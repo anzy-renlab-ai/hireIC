@@ -1,7 +1,7 @@
 # hireic-mcp
 
 MCP server for [hireIC](https://github.com/anzy-renlab-ai/hireIC). Exposes `list_jobs`
-and `list_candidates` from any hireIC-compatible GitHub repository.
+from any hireIC-compatible GitHub repository.
 
 ## Install / Run
 
@@ -36,13 +36,8 @@ npx hireic-mcp --owner your-org --repo your-hireIC-fork --ref main
 
 - `list_jobs(include_closed?: boolean)` — return all open jobs (or all if
   `include_closed: true`).
-- `list_candidates()` — return all candidates. Hidden-mode candidates have
-  `contact_value: "relay-pending"` or `relay-<github>@hireic.<domain>`;
-  do not attempt to derive real contact info.
 
-Output is JSON conforming to [agent-jobs.schema.json](https://github.com/anzy-renlab-ai/hireIC/blob/main/schemas/agent-jobs.schema.json)
-and [agent-cv.schema.json](https://github.com/anzy-renlab-ai/hireIC/blob/main/schemas/agent-cv.schema.json)
-respectively.
+Output is JSON conforming to [agent-jobs.schema.json](https://github.com/anzy-renlab-ai/hireIC/blob/main/schemas/agent-jobs.schema.json).
 
 ## Auth
 
@@ -62,8 +57,7 @@ PAT only needs `public_repo` read scope (no write).
 ## Cache
 
 The server keeps a 5-minute in-memory cache of the GitHub Contents API
-response, separated per path (`jobs/` and `candidates/` cache
-independently). Restart the server to invalidate sooner.
+response for the `jobs/` path. Restart the server to invalidate sooner.
 
 ## License
 

@@ -9,16 +9,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Schemas live at the repo root. In a published package, they'd be bundled into dist/.
 // For now we read them from disk relative to this file (works in tests + dev).
-const cvSchema = JSON.parse(
-  readFileSync(resolve(__dirname, "../../schemas/agent-cv.schema.json"), "utf-8"),
-);
 const jobsSchema = JSON.parse(
   readFileSync(resolve(__dirname, "../../schemas/agent-jobs.schema.json"), "utf-8"),
 );
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
-const validateCv: ValidateFunction = ajv.compile(cvSchema);
 const validateJob: ValidateFunction = ajv.compile(jobsSchema);
 
 export interface RawFile {
@@ -48,24 +44,6 @@ export interface HandlerError {
   message: string;
 }
 
-export interface AgentCv {
-  schema_version: "0.1";
-  github_username: string;
-  cc_experience_months: number;
-  evidence_url: string;
-  contact_mode: "public" | "hidden";
-  contact_value: string;
-  bio_zh?: string;
-  bio_en?: string;
-  looking_for?: "full-time" | "contract" | "open-to-talk" | "not-looking";
-  salary_range_rmb?: string;
-  location?: string;
-  referrer_github?: string;
-  referrer_evidence_pr_url?: string;
-  agent_stack?: string;
-  available_from?: string;
-}
-
 export interface AgentJob {
   schema_version: "0.1";
   company: string;
@@ -84,16 +62,6 @@ export interface AgentJob {
   status?: "open" | "closed";
 }
 
-export interface ListCandidatesArgs {
-  owner: string;
-  repo: string;
-  fetcher: Fetcher;
-}
-
-export interface ListCandidatesResult {
-  candidates: AgentCv[];
-  errors: HandlerError[];
-}
 
 export interface ListJobsArgs {
   owner: string;
@@ -111,7 +79,7 @@ function isMarkdownFile(name: string): boolean {
   return name.endsWith(".md") && !name.startsWith(".");
 }
 
-// Prompt-injection hardening: candidate/job free-text is served verbatim to a
+// Prompt-injection hardening: job free-text is served verbatim to a
 // recruiter's LLM agent. Strip characters that have no legitimate use in this
 // data but are used to smuggle hidden instructions past human review —
 // C0 control chars (except \t \n \r), DEL, zero-width, bidi overrides, BOM.
@@ -188,35 +156,6 @@ async function safeFetch(
   }
 }
 
-export async function listCandidates(args: ListCandidatesArgs): Promise<ListCandidatesResult> {
-  const fetched = await safeFetch(args.fetcher, "candidates");
-  if (!fetched.ok) return { candidates: [], errors: [fetched.error] };
-
-  const candidates: AgentCv[] = [];
-  const errors: HandlerError[] = [];
-
-  for (const file of fetched.files) {
-    if (!isMarkdownFile(file.name)) continue;
-
-    const parsed = parseFrontmatter(file);
-    if (!parsed.ok) {
-      errors.push(parsed.error);
-      continue;
-    }
-
-    if (!validateCv(parsed.data)) {
-      errors.push({
-        kind: "schema_invalid",
-        file: file.name,
-        message: ajv.errorsText(validateCv.errors),
-      });
-      continue;
-    }
-    candidates.push(sanitizeRecord(parsed.data) as unknown as AgentCv);
-  }
-
-  return { candidates, errors };
-}
 
 export async function listJobs(args: ListJobsArgs): Promise<ListJobsResult> {
   const fetched = await safeFetch(args.fetcher, "jobs");

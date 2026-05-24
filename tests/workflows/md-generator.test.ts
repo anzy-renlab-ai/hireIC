@@ -1,22 +1,10 @@
 import { describe, it, expect } from "vitest";
 import matter from "gray-matter";
 import {
-  generateCandidateMarkdown,
   generateJobMarkdown,
-  candidateFilename,
   jobFilename,
 } from "../../scripts/md-generator.js";
-import type { CandidatePayload, JobPayload } from "../../scripts/issue-parser.js";
-
-describe("candidateFilename", () => {
-  it("uses github_username.md", () => {
-    expect(candidateFilename({ github_username: "alicelu" } as CandidatePayload)).toBe("alicelu.md");
-  });
-
-  it("lowercases github_username for filesystem consistency", () => {
-    expect(candidateFilename({ github_username: "AliceLu" } as CandidatePayload)).toBe("alicelu.md");
-  });
-});
+import type { JobPayload } from "../../scripts/issue-parser.js";
 
 describe("jobFilename", () => {
   const base: JobPayload = {
@@ -49,85 +37,6 @@ describe("jobFilename", () => {
     };
     const name = jobFilename(job, new Date("2026-05-19T00:00:00Z"));
     expect(name.length).toBeLessThan(100);
-  });
-});
-
-describe("generateCandidateMarkdown", () => {
-  const minimal: CandidatePayload = {
-    schema_version: "0.1",
-    github_username: "alicelu",
-    cc_experience_months: 12,
-    evidence_url: "https://github.com/alicelu/proj/pull/42",
-    contact_mode: "public",
-    contact_value: "alice@example.com",
-  };
-
-  it("starts with --- yaml frontmatter --- block", () => {
-    const md = generateCandidateMarkdown(minimal);
-    expect(md.startsWith("---\n")).toBe(true);
-    expect(md).toMatch(/\n---\n/);
-  });
-
-  it("includes every required field in frontmatter", () => {
-    const md = generateCandidateMarkdown(minimal);
-    expect(md).toContain("schema_version:");
-    expect(md).toContain("github_username: alicelu");
-    expect(md).toContain("cc_experience_months: 12");
-    expect(md).toContain("evidence_url: https://github.com/alicelu/proj/pull/42");
-    expect(md).toContain("contact_mode: public");
-    expect(md).toContain("contact_value: alice@example.com");
-  });
-
-  it("omits optional fields when not set", () => {
-    const md = generateCandidateMarkdown(minimal);
-    expect(md).not.toContain("bio_zh:");
-    expect(md).not.toContain("looking_for:");
-    expect(md).not.toContain("referrer_github:");
-  });
-
-  it("includes optional fields when set", () => {
-    const md = generateCandidateMarkdown({
-      ...minimal,
-      bio_zh: "全栈, cc 用得熟",
-      looking_for: "open-to-talk",
-      referrer_github: "bob",
-    });
-    expect(md).toContain("bio_zh: 全栈, cc 用得熟");
-    expect(md).toContain("looking_for: open-to-talk");
-    expect(md).toContain("referrer_github: bob");
-  });
-
-  it("YAML-quotes schema_version since 0.1 is ambiguous", () => {
-    const md = generateCandidateMarkdown(minimal);
-    expect(md).toMatch(/schema_version:\s*"0\.1"/);
-  });
-
-  it("includes a body section after frontmatter with auto-generated note", () => {
-    const md = generateCandidateMarkdown(minimal);
-    const bodyStart = md.indexOf("\n---\n", 5) + 5;
-    const body = md.slice(bodyStart);
-    expect(body.trim().length).toBeGreaterThan(0);
-    expect(body).toContain("自动生成");
-  });
-
-  it("preserves hidden mode contact_value (relay-pending or relay-*)", () => {
-    const hidden: CandidatePayload = {
-      ...minimal,
-      contact_mode: "hidden",
-      contact_value: "relay-pending",
-    };
-    const md = generateCandidateMarkdown(hidden);
-    expect(md).toContain("contact_mode: hidden");
-    expect(md).toContain("contact_value: relay-pending");
-  });
-
-  it("escapes strings that contain colons or special yaml chars", () => {
-    const md = generateCandidateMarkdown({
-      ...minimal,
-      bio_zh: "I love: coding! And: shipping.",
-    });
-    // The bio should be wrapped in quotes since it contains a colon
-    expect(md).toMatch(/bio_zh:\s*["'].*coding.*["']/);
   });
 });
 
