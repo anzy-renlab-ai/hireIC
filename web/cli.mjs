@@ -5,8 +5,9 @@
 // (counts only — nothing but counts leaves your machine), and submits. Scoring +
 // delivery happen server-side; all secrets stay on the server.
 
-import { readdirSync, existsSync, readFileSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync, createReadStream } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -30,13 +31,30 @@ hireIC 投递 · ${jobId}
 🔒 隐私:只发送计数 + 你的公开 GitHub 用户名 + 联系方式。绝不读取代码内容、文件名、路径或密钥,不上传任何文件。脚本开源可审:https://hire.renlab.ai/cli.mjs
 `);
 
-// 1) who are you — detect github + contact, no typing
+// 1) GitHub identity — auto-detected (this is just your public login, no secret).
 const github = argOf("--github") || tryExec("gh", ["api", "user", "-q", ".login"]);
-const contact = argOf("--contact") || tryExec("gh", ["api", "user", "-q", ".email"]) || tryExec("git", ["config", "user.email"]);
-if (!github) { console.error("can't detect your GitHub — append --github <login> (or run `gh auth login`)"); process.exit(1); }
-if (!contact) { console.error("can't detect a contact — append --contact <email/wechat>"); process.exit(1); }
+if (!github) { console.error("认不出你的 GitHub — 加 --github <用户名>(或先 `gh auth login`)"); process.exit(1); }
 
-// 2) self-introspect (counts/flags only)
+// 2) Contact — the employer reaches you HERE, so you type it explicitly. We never
+// guess a private/noreply email behind your back. --contact wins; otherwise we ask
+// on /dev/tty (works even though stdin is the piped script). A git email is offered
+// as a press-enter default, but you choose.
+async function askContact() {
+  const flag = argOf("--contact");
+  if (flag && flag.trim()) return flag.trim();
+  const guess = (tryExec("git", ["config", "user.email"]) || "").replace(/.*@users\.noreply\.github\.com$/, "");
+  try {
+    const input = createReadStream("/dev/tty");
+    const rl = createInterface({ input, output: process.stderr });
+    const ans = await new Promise((res) => rl.question(`📬 你的联系方式(邮箱/微信/手机,招聘方用它联系你)${guess ? ` [回车用 ${guess}]` : ""}: `, res));
+    rl.close(); input.destroy();
+    return (ans.trim() || guess).trim();
+  } catch { return ""; }
+}
+const contact = await askContact();
+if (!contact) { console.error("需要一个联系方式 — 重跑并在末尾加 --contact <你的邮箱/微信/手机>"); process.exit(1); }
+
+// 3) self-introspect (counts/flags only)
 const home = homedir(), claude = join(home, ".claude");
 const countDirs = (p) => { try { return readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory()).length; } catch { return 0; } };
 const readJson = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } catch { return {}; } };
@@ -64,7 +82,7 @@ const profile = {
   localCcCommits, localCcRepos, localCcMonths: months.size, localCcTenureMonths: tenure,
 };
 
-// 3) submit — show the candidate the EXACT payload first, so they can see for
+// 4) submit — show the candidate the EXACT payload first, so they can see for
 // themselves that only counts + github + contact leave the machine.
 const payload = { github, contact, job_id: jobId, profile };
 console.log("本次发送的全部数据(就这些,全是计数/标志,无代码内容):");
