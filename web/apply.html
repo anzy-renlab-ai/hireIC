@@ -42,7 +42,8 @@
   </div>
 </div>
 <script>
-  var job = new URLSearchParams(location.search).get("job") || "";
+  var pathJob = (location.pathname.match(/^\/j\/([\w-]+)/) || [])[1];
+  var job = new URLSearchParams(location.search).get("job") || pathJob || "";
   var cmd = "curl -fsSL https://hire.renlab.ai/cli.mjs | node -" + (job ? " " + job : "");
   document.getElementById("cmd").textContent = cmd;
   if (job) document.getElementById("role").textContent = job.replace(/-\d{4}-\d{2}$/, "").replace(/-/g, " ");

@@ -2,6 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/j/:job", "destination": "/apply?job=:job" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
