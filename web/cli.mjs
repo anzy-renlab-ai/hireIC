@@ -23,6 +23,13 @@ function tryExec(cmd, args) {
   catch { return ""; }
 }
 
+// BEFORE — tell the candidate exactly what's about to happen + the privacy promise.
+console.log(`
+hireIC 投递 · ${jobId}
+即将:① 认出你的 GitHub  ② 数一数你本地的 cc 使用痕迹(只数数量)  ③ 提交评估
+🔒 隐私:只发送计数 + 你的公开 GitHub 用户名 + 联系方式。绝不读取代码内容、文件名、路径或密钥,不上传任何文件。脚本开源可审:https://hire.renlab.ai/cli.mjs
+`);
+
 // 1) who are you — detect github + contact, no typing
 const github = argOf("--github") || tryExec("gh", ["api", "user", "-q", ".login"]);
 const contact = argOf("--contact") || tryExec("gh", ["api", "user", "-q", ".email"]) || tryExec("git", ["config", "user.email"]);
@@ -57,14 +64,21 @@ const profile = {
   localCcCommits, localCcRepos, localCcMonths: months.size, localCcTenureMonths: tenure,
 };
 
-// 3) submit
+// 3) submit — show the candidate the EXACT payload first, so they can see for
+// themselves that only counts + github + contact leave the machine.
+const payload = { github, contact, job_id: jobId, profile };
+console.log("本次发送的全部数据(就这些,全是计数/标志,无代码内容):");
+console.log(JSON.stringify(payload, null, 2).split("\n").map((l) => "  " + l).join("\n"));
+console.log("");
+
 const resp = await fetch(`${API}/api/apply`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ github, contact, job_id: jobId, profile }),
+  body: JSON.stringify(payload),
 });
 if (!resp.ok) { console.error(`apply failed: HTTP ${resp.status}`); process.exit(1); }
 const r = await resp.json();
 console.log(`✓ 已投递 ${jobId} as @${github}`);
 console.log(`  cc 信号分: ${r.cc_score}/100 (${r.band})`);
 console.log(`  招聘方${r.delivery?.delivered ? "已收到你的申请,会直接联系你" : "投递已记录"}.`);
+console.log(`🔒 完成。上面那段 JSON 就是离开你机器的全部内容 —— 没有代码、没有文件、没有隐私。`);

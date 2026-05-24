@@ -20,6 +20,8 @@
   .cmd button.done{background:var(--ok)}
   .fine{color:var(--ink-3);font-size:13px;line-height:1.55}
   .fine b{color:var(--ink-2)}
+  .priv{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:9px}
+  .priv a{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -32,7 +34,12 @@
     <code id="cmd">curl -fsSL https://hire.renlab.ai/cli.mjs | node -</code>
     <button id="copy">复制</button>
   </div>
-  <div class="fine">它会<b>自动</b>认出你的 GitHub、盘点你真实的 cc 足迹(本地的只数数量、不外传内容)、提交。招聘方收到带证据的评估后直接联系你。<b>不看简历,看你真用 Claude Code 的痕迹。</b></div>
+  <div class="fine">
+    它会<b>自动</b>认出你的 GitHub、盘点你真实的 cc 足迹、提交。招聘方收到带证据的评估后直接联系你。<b>不看简历,看你真用 Claude Code 的痕迹。</b>
+    <div class="priv">
+      🔒 <b>隐私</b>:运行时会先告诉你它要做什么,结束时把<b>离开你机器的全部数据</b>原样打印给你看 —— 只有<b>计数</b>(skill/MCP/commit 的数量)+ 你的公开 GitHub 用户名 + 联系方式。<b>绝不读取代码内容、文件名、路径或密钥,不上传任何文件。</b>脚本开源可审:<a href="https://hire.renlab.ai/cli.mjs" target="_blank" rel="noopener">cli.mjs</a>。
+    </div>
+  </div>
 </div>
 <script>
   var job = new URLSearchParams(location.search).get("job") || "";
