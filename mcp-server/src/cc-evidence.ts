@@ -27,6 +27,19 @@ const REQUEST_TIMEOUT_MS = 8000;
 // human collaborator literally named Claude, or fuzzy commit-search hits.
 const CLAUDE_TRAILER_RE = /co-authored-by:\s*claude[^\n>]*<noreply@anthropic\.com>/i;
 
+// Hidden anti-spoof — NOT advertised in the API/docs. git author-dates are
+// forgeable, so a faker backdates "Claude-co-authored" commits to inflate tenure
+// /cadence. But Claude Code didn't exist before early 2025: any such commit dated
+// before this floor (or in the future) is fabricated → silently dropped. Honest
+// users (real cc commits are 2025+) are unaffected; we never tell the candidate.
+const CC_EPOCH = Date.parse("2025-02-01T00:00:00Z");
+function plausibleCcDate(dateStr: string | undefined, now: number): boolean {
+  if (!dateStr) return false;
+  const t = Date.parse(dateStr);
+  if (Number.isNaN(t)) return false;
+  return t >= CC_EPOCH && t <= now + 86_400_000; // not pre-cc-era, not future-dated
+}
+
 export async function gatherCcEvidence(
   github: string,
   deps: EvidenceDeps = {},
@@ -66,7 +79,13 @@ export async function gatherCcEvidence(
       rawLen = all.length;
       for (const it of all) {
         const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
-        if (owner === login && CLAUDE_TRAILER_RE.test(it.commit?.message ?? "")) kept.push(it);
+        if (
+          owner === login &&
+          CLAUDE_TRAILER_RE.test(it.commit?.message ?? "") &&
+          plausibleCcDate(it.commit?.author?.date, now) // hidden: drop pre-cc-era / future-dated fakes
+        ) {
+          kept.push(it);
+        }
       }
     } catch {
       break; // fail-open: keep whatever we already collected

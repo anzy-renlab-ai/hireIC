@@ -67,6 +67,19 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
     expect(ev.ccCommits).toBe(0);
   });
 
+  it("HIDDEN anti-spoof: drops own-repo trailer commits backdated before cc existed, or future-dated", async () => {
+    const fakes = { items: [
+      // real trailer, own repo, but dated 2024 (before Claude Code) → fabricated, dropped
+      { html_url: "u1", author: { login: "alicelu" }, repository: { full_name: "alicelu/old" }, commit: { message: "x" + TRAILER, author: { date: "2024-06-01T00:00:00Z" } } },
+      // future-dated → dropped
+      { html_url: "u2", author: { login: "alicelu" }, repository: { full_name: "alicelu/fut" }, commit: { message: "y" + TRAILER, author: { date: "2030-01-01T00:00:00Z" } } },
+      // one legit, in-era
+      { html_url: "u3", author: { login: "alicelu" }, repository: { full_name: "alicelu/ok" }, commit: { message: "z" + TRAILER, author: { date: "2026-02-10T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("alicelu", { fetchImpl: stubFetch({ body: fakes }), now: NOW });
+    expect(ev.ccCommits).toBe(1); // only the in-era commit counts
+  });
+
   it("only hits api.github.com, queries author + the anthropic fingerprint, no redirect chasing", async () => {
     const cap: { url?: string; init?: RequestInit | undefined } = {};
     await gatherCcEvidence("alice-lu", { fetchImpl: stubFetch({ body, capture: cap }), now: NOW });
