@@ -4,17 +4,8 @@
 // { kind: "error", reason, message }. The workflow then performs GH API calls
 // based on this decision. Keeping the logic pure makes it fully testable.
 
-import {
-  parseIssueBody,
-  validateCandidatePayload,
-  validateJobPayload,
-} from "./issue-parser.js";
-import {
-  generateCandidateMarkdown,
-  generateJobMarkdown,
-  candidateFilename,
-  jobFilename,
-} from "./md-generator.js";
+import { parseIssueBody, validateJobPayload } from "./issue-parser.js";
+import { generateJobMarkdown, jobFilename } from "./md-generator.js";
 
 export interface DecideArgs {
   commentBody: string;
@@ -40,7 +31,7 @@ export type NoopReason =
 export type ErrorReason = "revalidation_failed" | "unknown_kind";
 
 export interface ConvertTarget {
-  kind: "candidate" | "job";
+  kind: "job";
   path: string;
   markdown: string;
 }
@@ -57,8 +48,7 @@ function isApprove(comment: string): boolean {
   return APPROVE_RE.test(comment);
 }
 
-function detectKind(labels: string[]): "candidate" | "job" | null {
-  if (labels.includes("candidate")) return "candidate";
+function detectKind(labels: string[]): "job" | null {
   if (labels.includes("job")) return "job";
   return null;
 }
@@ -87,33 +77,6 @@ export function decideConvert(args: DecideArgs): Decision {
   }
 
   const parsed = parseIssueBody(args.issueBody);
-
-  if (kind === "candidate") {
-    const result = validateCandidatePayload(parsed);
-    if (!result.ok) {
-      return {
-        kind: "error",
-        reason: "revalidation_failed",
-        message: result.errors.map((e) => `${e.field}: ${e.message}`).join("\n"),
-      };
-    }
-    const filename = candidateFilename(result.payload);
-    const markdown = generateCandidateMarkdown(result.payload);
-    const slug = asciiSlug(result.payload.github_username);
-    return {
-      kind: "convert",
-      target: {
-        kind: "candidate",
-        path: `candidates/${filename}`,
-        markdown,
-      },
-      pr: {
-        title: `Candidate: ${result.payload.github_username}`,
-        branchName: `convert/issue-${args.issueNumber ?? 0}-${slug}`,
-        commitMessage: `Add candidate: ${result.payload.github_username}\n\nResolves issue #${args.issueNumber ?? "?"}.`,
-      },
-    };
-  }
 
   if (kind === "job") {
     const result = validateJobPayload(parsed);

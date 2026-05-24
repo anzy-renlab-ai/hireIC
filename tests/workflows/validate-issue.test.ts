@@ -1,27 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runValidation } from "../../scripts/validate-issue.js";
 
-const goodCandidateBody = `### GitHub username
-
-alicelu
-
-### cc 经验 (月数 / months)
-
-12
-
-### cc-fluency 证据 URL
-
-https://github.com/alicelu/proj/pull/42
-
-### 联系方式公开度 — Contact mode
-
-public
-
-### 联系方式 — Contact value
-
-alice@example.com
-`;
-
 const goodJobBody = `### 公司名 — company
 
 Acme
@@ -43,43 +22,6 @@ https://acme.com/jobs/123
 jobs@acme.com
 `;
 
-describe("runValidation — candidate flow", () => {
-  it("passes a valid candidate and applies pending-review label", () => {
-    const r = runValidation({ body: goodCandidateBody, labels: ["candidate"] });
-    expect(r.outcome).toBe("pass");
-    expect(r.applyLabel).toBe("pending-review");
-    expect(r.reason).toBe("validated");
-    expect(r.commentMarkdown).toContain("✅");
-    expect(r.commentMarkdown).toContain("候选人 profile");
-  });
-
-  it("fails when a required field is missing", () => {
-    const noEvidence = goodCandidateBody.replace(
-      /### cc-fluency 证据 URL\n\nhttps:\/\/[^\n]+\n/,
-      "### cc-fluency 证据 URL\n\n_No response_\n",
-    );
-    const r = runValidation({ body: noEvidence, labels: ["candidate"] });
-    expect(r.outcome).toBe("fail");
-    expect(r.reason).toBe("field_errors");
-    expect(r.applyLabel).toBeNull();
-    expect(r.commentMarkdown).toContain("evidence_url");
-    expect(r.commentMarkdown).toContain("❌");
-  });
-
-  it("rejects PII before validating fields (PII has higher priority)", () => {
-    const piiBody = goodCandidateBody.replace(
-      "alice@example.com",
-      "alice@example.com 13812345678",
-    );
-    const r = runValidation({ body: piiBody, labels: ["candidate"] });
-    expect(r.outcome).toBe("fail");
-    expect(r.reason).toBe("pii");
-    expect(r.commentMarkdown).toContain("PII");
-    expect(r.commentMarkdown).not.toContain("13812345678"); // redacted
-    expect(r.commentMarkdown).toMatch(/138.*5678/);        // masked preview
-  });
-});
-
 describe("runValidation — job flow", () => {
   it("passes a valid job and applies pending-review label", () => {
     const r = runValidation({ body: goodJobBody, labels: ["job"] });
@@ -99,66 +41,35 @@ describe("runValidation — job flow", () => {
     expect(r.commentMarkdown).toContain("cc_required");
     expect(r.commentMarkdown).toContain("不在 hireIC 范围");
   });
+
+  it("rejects PII before validating fields (PII has higher priority)", () => {
+    const piiBody = goodJobBody.replace(
+      "jobs@acme.com",
+      "jobs@acme.com 13812345678",
+    );
+    const r = runValidation({ body: piiBody, labels: ["job"] });
+    expect(r.outcome).toBe("fail");
+    expect(r.reason).toBe("pii");
+    expect(r.commentMarkdown).toContain("PII");
+    expect(r.commentMarkdown).not.toContain("13812345678"); // redacted
+    expect(r.commentMarkdown).toMatch(/138.*5678/);        // masked preview
+  });
 });
 
 describe("runValidation — label routing", () => {
-  it("fails fast when issue lacks candidate/job label", () => {
-    const r = runValidation({ body: goodCandidateBody, labels: ["bug", "wontfix"] });
+  it("fails fast when issue lacks the job label", () => {
+    const r = runValidation({ body: goodJobBody, labels: ["bug", "wontfix"] });
     expect(r.outcome).toBe("fail");
     expect(r.reason).toBe("missing_kind_label");
     expect(r.applyLabel).toBeNull();
     expect(r.commentMarkdown).toContain("Issue Form");
   });
 
-  it("uses the candidate label even if other labels present", () => {
+  it("uses the job label even if other labels present", () => {
     const r = runValidation({
-      body: goodCandidateBody,
-      labels: ["candidate", "pending-validation", "good-first-issue"],
+      body: goodJobBody,
+      labels: ["job", "pending-validation", "good-first-issue"],
     });
     expect(r.outcome).toBe("pass");
-  });
-});
-
-describe("runValidation — hidden mode does not leak", () => {
-  it("normalizes hidden contact_value even if user put a real email", () => {
-    const hiddenBody = goodCandidateBody.replace("public", "hidden");
-    const r = runValidation({ body: hiddenBody, labels: ["candidate"] });
-    expect(r.outcome).toBe("pass");
-    // The success comment does not echo the contact_value
-    expect(r.commentMarkdown).not.toContain("alice@example.com");
-  });
-});
-
-describe("runValidation — advisory warnings (never flip outcome)", () => {
-  const cc600Body = goodCandidateBody.replace(
-    "### cc 经验 (月数 / months)\n\n12",
-    "### cc 经验 (月数 / months)\n\n600",
-  );
-
-  it("still passes but surfaces a ⚠️ advisory when cc months is implausible", () => {
-    const r = runValidation({ body: cc600Body, labels: ["candidate"] });
-    expect(r.outcome).toBe("pass");
-    expect(r.applyLabel).toBe("pending-review");
-    expect(r.warnings.length).toBeGreaterThan(0);
-    expect(r.commentMarkdown).toContain("⚠️");
-  });
-
-  it("clean candidate has no advisory section", () => {
-    const r = runValidation({ body: goodCandidateBody, labels: ["candidate"] });
-    expect(r.warnings).toEqual([]);
-    expect(r.commentMarkdown).not.toContain("⚠️");
-  });
-
-  it("merges injected network warnings into the success comment", () => {
-    const r = runValidation({
-      body: goodCandidateBody,
-      labels: ["candidate"],
-      extraWarnings: [
-        { field: "github_username", kind: "not_found", message: "GitHub 上查无此用户名." },
-      ],
-    });
-    expect(r.outcome).toBe("pass");
-    expect(r.commentMarkdown).toContain("⚠️");
-    expect(r.commentMarkdown).toContain("查无此用户名");
   });
 });

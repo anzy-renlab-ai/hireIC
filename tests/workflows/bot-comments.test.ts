@@ -72,20 +72,19 @@ describe("renderValidationErrorComment", () => {
 
 describe("renderValidationSuccessComment", () => {
   it("opens with transparency line", () => {
-    const md = renderValidationSuccessComment("candidate");
+    const md = renderValidationSuccessComment("job");
     expect(md).toContain("(自动校验, 不是 founder 本人)");
   });
 
   it("contains ✅ and mentions pending-review", () => {
-    const md = renderValidationSuccessComment("candidate");
+    const md = renderValidationSuccessComment("job");
     expect(md).toContain("✅");
     expect(md).toMatch(/pending.review|founder 审/);
   });
 
-  it("differs for candidate vs job", () => {
-    const cand = renderValidationSuccessComment("candidate");
-    const job = renderValidationSuccessComment("job");
-    expect(cand).not.toBe(job);
+  it("renders the 招聘职位 success subject", () => {
+    const md = renderValidationSuccessComment("job");
+    expect(md).toContain("招聘职位");
   });
 });
 

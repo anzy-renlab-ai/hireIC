@@ -1,10 +1,9 @@
 {
-  "generated_at": "2026-05-23T13:40:56.006Z",
+  "generated_at": "2026-05-24T03:48:52.275Z",
   "repo": "anzy-renlab-ai/hireIC",
   "schema_version": "0.1",
   "counts": {
     "jobs": 1,
-    "candidates": 0,
     "jobs_closed": 0
   },
   "jobs": [
@@ -22,6 +21,5 @@
       "employment_type": "full-time",
       "apply_url": "https://renlab.ai"
     }
-  ],
-  "candidates": []
+  ]
 }

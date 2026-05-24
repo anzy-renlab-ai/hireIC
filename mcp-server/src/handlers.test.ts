@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listJobs, listCandidates, type Fetcher } from "./handlers.js";
+import { describe, it, expect } from "vitest";
+import { listJobs, type Fetcher } from "./handlers.js";
 
 function makeFetcher(
   files: Record<string, { name: string; content: string }[]> | Record<string, "404" | "429" | Error>,
@@ -14,19 +14,6 @@ function makeFetcher(
   };
 }
 
-const validCandidateMd = `---
-schema_version: "0.1"
-github_username: alicelu
-cc_experience_months: 12
-evidence_url: https://github.com/alicelu/proj/pull/42
-contact_mode: public
-contact_value: alice@example.com
-bio_zh: 全栈, cc 用得熟
----
-
-More markdown body here, ignored by parser.
-`;
-
 const validJobMd = `---
 schema_version: "0.1"
 company: Acme
@@ -38,113 +25,6 @@ contact_value: jobs@acme.com
 
 Description body.
 `;
-
-const hiddenCandidateMd = `---
-schema_version: "0.1"
-github_username: bobwang
-cc_experience_months: 24
-evidence_url: https://github.com/bobwang/blog/blob/main/cc-workflow.md
-contact_mode: hidden
-contact_value: relay-pending
----
-`;
-
-describe("listCandidates", () => {
-  it("returns [] for an empty directory", async () => {
-    const fetcher = makeFetcher({ "candidates": [] });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toEqual([]);
-    expect(result.errors).toEqual([]);
-  });
-
-  it("parses a valid candidate file", async () => {
-    const fetcher = makeFetcher({
-      "candidates": [{ name: "alicelu.md", content: validCandidateMd }],
-    });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toHaveLength(1);
-    expect(result.candidates[0]).toMatchObject({
-      schema_version: "0.1",
-      github_username: "alicelu",
-      cc_experience_months: 12,
-      contact_mode: "public",
-      contact_value: "alice@example.com",
-    });
-    expect(result.errors).toEqual([]);
-  });
-
-  it("preserves hidden mode contact_value verbatim (no leakage)", async () => {
-    const fetcher = makeFetcher({
-      "candidates": [{ name: "bobwang.md", content: hiddenCandidateMd }],
-    });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates[0]?.contact_mode).toBe("hidden");
-    expect(result.candidates[0]?.contact_value).toBe("relay-pending");
-  });
-
-  it("skips malformed files and reports errors", async () => {
-    const fetcher = makeFetcher({
-      "candidates": [
-        { name: "alicelu.md", content: validCandidateMd },
-        { name: "broken.md", content: "---\nnot: yaml\nand: also: too: many: colons\n---\n" },
-        { name: "no-frontmatter.md", content: "just a normal md\n" },
-      ],
-    });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toHaveLength(1);
-    expect(result.candidates[0]?.github_username).toBe("alicelu");
-    expect(result.errors.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("skips files where frontmatter does not validate against schema", async () => {
-    const fetcher = makeFetcher({
-      "candidates": [
-        {
-          name: "missing-required.md",
-          content: `---\ngithub_username: x\n---\n`,
-        },
-      ],
-    });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toEqual([]);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]?.file).toBe("missing-required.md");
-  });
-
-  it("returns structured error on GitHub 404", async () => {
-    const fetcher = makeFetcher({ "candidates": "404" });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toEqual([]);
-    expect(result.errors[0]?.kind).toBe("not_found");
-  });
-
-  it("returns structured error on GitHub 429 rate-limit", async () => {
-    const fetcher = makeFetcher({ "candidates": "429" });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toEqual([]);
-    expect(result.errors[0]?.kind).toBe("rate_limited");
-  });
-
-  it("returns structured error on network failure", async () => {
-    const fetcher = makeFetcher({ "candidates": new Error("ECONNREFUSED") });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toEqual([]);
-    expect(result.errors[0]?.kind).toBe("network");
-    expect(result.errors[0]?.message).toContain("ECONNREFUSED");
-  });
-
-  it("ignores .gitkeep and non-.md files", async () => {
-    const fetcher = makeFetcher({
-      "candidates": [
-        { name: ".gitkeep", content: "" },
-        { name: "README.txt", content: "ignored" },
-        { name: "alicelu.md", content: validCandidateMd },
-      ],
-    });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates).toHaveLength(1);
-  });
-});
 
 describe("listJobs", () => {
   it("returns [] for an empty directory", async () => {
@@ -198,15 +78,15 @@ describe("listJobs", () => {
 });
 
 describe("schema_version handling", () => {
-  it("accepts future schema_version with warning, not failure", async () => {
-    const futureMd = validCandidateMd.replace('schema_version: "0.1"', 'schema_version: "99.0"');
+  it("rejects an unknown schema_version with a schema_invalid error", async () => {
+    const futureMd = validJobMd.replace('schema_version: "0.1"', 'schema_version: "99.0"');
     const fetcher = makeFetcher({
-      "candidates": [{ name: "future.md", content: futureMd }],
+      "jobs": [{ name: "future.md", content: futureMd }],
     });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
+    const result = await listJobs({ owner: "o", repo: "r", fetcher });
     // schema_version: "99.0" is not in our enum, so it's rejected.
     // Future versions should be added to schema enum; current behavior: reject + report.
-    expect(result.candidates).toEqual([]);
+    expect(result.jobs).toEqual([]);
     expect(result.errors[0]?.kind).toBe("schema_invalid");
   });
 });
@@ -215,35 +95,34 @@ describe("MCP serving — prompt-injection hardening of free-text", () => {
   const ZW = "​"; // zero-width space
   const BIDI = "‮"; // right-to-left override
 
-  it("strips zero-width / bidi / control chars from served free-text (anti-smuggling)", async () => {
+  it("strips zero-width / bidi / control chars from served job free-text (anti-smuggling)", async () => {
     const evil = [
       "---",
       'schema_version: "0.1"',
-      "github_username: evilcand",
-      "cc_experience_months: 12",
-      "evidence_url: https://github.com/evilcand/x/pull/1",
-      "contact_mode: public",
-      "contact_value: e@example.com",
-      `bio_zh: "hi${ZW}there${BIDI}evil"`,
-      'agent_stack: "cc \\t stack"',
+      "company: Acme",
+      `role_title_zh: "工程师"`,
+      "cc_required: true",
+      "apply_url: https://acme.com/j/1",
+      "contact_value: jobs@acme.com",
+      `description_zh: "hi${ZW}there${BIDI}evil"`,
       "---",
       "",
     ].join("\n");
-    const fetcher = makeFetcher({ "candidates": [{ name: "evilcand.md", content: evil }] });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    const c = result.candidates[0]!;
-    expect(c.bio_zh).toBe("hithereevil");
+    const fetcher = makeFetcher({ "jobs": [{ name: "acme.md", content: evil }] });
+    const result = await listJobs({ owner: "o", repo: "r", fetcher });
+    const c = result.jobs[0]!;
+    expect(c.description_zh).toBe("hithereevil");
     // no zero-width, bidi, or C0 control chars remain
     // eslint-disable-next-line no-control-regex
-    expect(/[\u0000-\u001F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/.test(c.bio_zh ?? "")).toBe(false);
+    expect(/[\u0000-\u001F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/.test(c.description_zh ?? "")).toBe(false);
   });
 
-  it("does not alter clean free-text", async () => {
+  it("does not alter clean job free-text", async () => {
     const fetcher = makeFetcher({
-      "candidates": [{ name: "alicelu.md", content: validCandidateMd }],
+      "jobs": [{ name: "acme.md", content: validJobMd }],
     });
-    const result = await listCandidates({ owner: "o", repo: "r", fetcher });
-    expect(result.candidates[0]?.bio_zh).toBe("全栈, cc 用得熟");
+    const result = await listJobs({ owner: "o", repo: "r", fetcher });
+    expect(result.jobs[0]?.role_title_zh).toBe("全栈工程师 (cc-fluent)");
   });
 
   it("sanitizes job free-text too", async () => {

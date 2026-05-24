@@ -10,16 +10,6 @@ function fetcherFrom(map: Record<string, Array<{ name: string; content: string }
   };
 }
 
-const candidateMd = `---
-schema_version: "0.1"
-github_username: alicelu
-cc_experience_months: 12
-evidence_url: https://github.com/alicelu/proj/pull/42
-contact_mode: public
-contact_value: alice@example.com
----
-`;
-
 const jobMd = `---
 schema_version: "0.1"
 company: Acme
@@ -32,18 +22,16 @@ contact_value: jobs@acme.com
 
 function makeArgs(overrides: Partial<CreateMcpToolsArgs> = {}): CreateMcpToolsArgs {
   const fetcher = fetcherFrom({
-    candidates: [{ name: "alicelu.md", content: candidateMd }],
     jobs: [{ name: "acme.md", content: jobMd }],
   });
   return { owner: "o", repo: "r", fetcher, ...overrides };
 }
 
 describe("createMcpTools", () => {
-  it("declares list_jobs and list_candidates tools", () => {
+  it("declares the list_jobs tool", () => {
     const { tools } = createMcpTools(makeArgs());
     const names = tools.map((t) => t.name);
     expect(names).toContain("list_jobs");
-    expect(names).toContain("list_candidates");
   });
 
   it("every tool has a non-empty description (agent discoverability)", () => {
@@ -61,26 +49,13 @@ describe("createMcpTools", () => {
     }
   });
 
-  describe("list_candidates handler", () => {
-    it("returns candidates as MCP TextContent JSON", async () => {
-      const { call } = createMcpTools(makeArgs());
-      const result = await call("list_candidates", {});
-
-      expect(result.isError).toBeFalsy();
-      expect(result.content).toHaveLength(1);
-      const text = result.content[0];
-      if (text?.type !== "text") throw new Error("expected text content");
-      const parsed = JSON.parse(text.text);
-      expect(parsed.candidates).toHaveLength(1);
-      expect(parsed.candidates[0].github_username).toBe("alicelu");
-    });
-
+  describe("list_jobs handler", () => {
     it("reports errors in the response, does not throw", async () => {
       const fetcher: Fetcher = async () => {
         throw new Error("ECONNREFUSED");
       };
       const { call } = createMcpTools(makeArgs({ fetcher }));
-      const result = await call("list_candidates", {});
+      const result = await call("list_jobs", {});
 
       // Network error surfaces as MCP isError with structured body
       expect(result.isError).toBe(true);
@@ -88,9 +63,7 @@ describe("createMcpTools", () => {
       if (text?.type !== "text") throw new Error("expected text content");
       expect(text.text).toContain("ECONNREFUSED");
     });
-  });
 
-  describe("list_jobs handler", () => {
     it("returns jobs as MCP TextContent JSON, excluding closed by default", async () => {
       const { call } = createMcpTools(makeArgs());
       const result = await call("list_jobs", {});

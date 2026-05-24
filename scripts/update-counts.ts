@@ -6,7 +6,6 @@ const COUNTS_CLOSE = "<!-- /counts -->";
 
 export interface Counts {
   jobs: number;
-  candidates: number;
 }
 
 export function countMdFiles(filenames: string[]): number {
@@ -14,7 +13,7 @@ export function countMdFiles(filenames: string[]): number {
 }
 
 function renderBlock(counts: Counts): string {
-  return `${COUNTS_OPEN}\n**目前 ${counts.jobs} 个职位 · ${counts.candidates} 个候选人**\n${COUNTS_CLOSE}`;
+  return `${COUNTS_OPEN}\n**目前 ${counts.jobs} 个职位**\n${COUNTS_CLOSE}`;
 }
 
 export function rebuildReadmeCounts(readme: string, counts: Counts): string {

@@ -27,8 +27,8 @@ intro line
 
 rest of readme.
 `;
-    const result = rebuildReadmeCounts(input, { jobs: 3, candidates: 7 });
-    expect(result).toContain("**目前 3 个职位 · 7 个候选人**");
+    const result = rebuildReadmeCounts(input, { jobs: 3 });
+    expect(result).toContain("**目前 3 个职位**");
     expect(result).toContain("<!-- counts -->");
     expect(result).toContain("<!-- /counts -->");
     expect(result).not.toContain("0 个职位");
@@ -47,8 +47,8 @@ that should be replaced
 <!-- /counts -->
 
 after`;
-    const result = rebuildReadmeCounts(input, { jobs: 1, candidates: 2 });
-    expect(result).toContain("**目前 1 个职位 · 2 个候选人**");
+    const result = rebuildReadmeCounts(input, { jobs: 1 });
+    expect(result).toContain("**目前 1 个职位**");
     expect(result).not.toContain("garbage");
     expect(result).toContain("before");
     expect(result).toContain("after");
@@ -59,16 +59,16 @@ after`;
 
 no markers here yet
 `;
-    const result = rebuildReadmeCounts(input, { jobs: 5, candidates: 5 });
+    const result = rebuildReadmeCounts(input, { jobs: 5 });
     expect(result).toContain("<!-- counts -->");
     expect(result).toContain("<!-- /counts -->");
-    expect(result).toContain("**目前 5 个职位 · 5 个候选人**");
+    expect(result).toContain("**目前 5 个职位**");
     expect(result.indexOf("<!-- counts -->")).toBeGreaterThan(result.indexOf("# hireIC"));
   });
 
   it("does not push or run anything — pure function returns new content only", () => {
     const input = "x";
-    const result = rebuildReadmeCounts(input, { jobs: 0, candidates: 0 });
+    const result = rebuildReadmeCounts(input, { jobs: 0 });
     expect(typeof result).toBe("string");
   });
 
@@ -76,8 +76,8 @@ no markers here yet
     const input = `<!-- counts -->
 old
 <!-- /counts -->`;
-    const once = rebuildReadmeCounts(input, { jobs: 4, candidates: 8 });
-    const twice = rebuildReadmeCounts(once, { jobs: 4, candidates: 8 });
+    const once = rebuildReadmeCounts(input, { jobs: 4 });
+    const twice = rebuildReadmeCounts(once, { jobs: 4 });
     expect(twice).toBe(once);
   });
 
@@ -85,6 +85,6 @@ old
     const input = `<!-- counts -->
 content but no closing tag
 `;
-    expect(() => rebuildReadmeCounts(input, { jobs: 1, candidates: 1 })).toThrow(/malformed|missing.*\/counts/i);
+    expect(() => rebuildReadmeCounts(input, { jobs: 1 })).toThrow(/malformed|missing.*\/counts/i);
   });
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Vercel build-time data generator.
-// Reads ../jobs/*.md and ../candidates/*.md, writes web/data.json with
-// counts + minimal job/candidate metadata. The landing page fetches
+// Reads ../jobs/*.md, writes web/data.json with
+// counts + minimal job metadata. The landing page fetches
 // /data.json first (same-origin, no rate limit) and only hits the GitHub
 // API as a secondary refresh.
 //
@@ -48,7 +48,6 @@ function loadDir(dir) {
 }
 
 const jobsAll = loadDir("jobs");
-const candidatesAll = loadDir("candidates");
 
 // Exclude closed jobs from the public count, mirror handlers.ts behavior.
 const jobs = jobsAll.filter((j) => j.frontmatter.status !== "closed");
@@ -59,7 +58,6 @@ const data = {
   schema_version: "0.1",
   counts: {
     jobs: jobs.length,
-    candidates: candidatesAll.length,
     jobs_closed: jobsAll.length - jobs.length,
   },
   jobs: jobs.map((j, i) => ({
@@ -76,27 +74,8 @@ const data = {
     employment_type: j.frontmatter.employment_type || "—",
     apply_url: j.frontmatter.apply_url || `https://github.com/anzy-renlab-ai/hireIC/blob/main/jobs/${j.name}`,
   })),
-  candidates: candidatesAll.map((c, i) => ({
-    name: c.name,
-    idx: String(i + 1).padStart(2, "0"),
-    github_username: c.frontmatter.github_username || c.name.replace(/\.md$/, ""),
-    cc_experience_months: c.frontmatter.cc_experience_months || null,
-    evidence_url: c.frontmatter.evidence_url || null,
-    contact_mode: c.frontmatter.contact_mode || "public",
-    contact_value: c.frontmatter.contact_value || null,
-    bio_zh: c.frontmatter.bio_zh || null,
-    bio_en: c.frontmatter.bio_en || null,
-    looking_for: c.frontmatter.looking_for || null,
-    salary_range_rmb: c.frontmatter.salary_range_rmb || null,
-    location: c.frontmatter.location || null,
-    agent_stack: c.frontmatter.agent_stack || null,
-    referrer_github: c.frontmatter.referrer_github || null,
-    referrer_evidence_pr_url: c.frontmatter.referrer_evidence_pr_url || null,
-    available_from: c.frontmatter.available_from || null,
-    profile_url: `https://github.com/anzy-renlab-ai/hireIC/blob/main/candidates/${c.name}`,
-  })),
 };
 
 const outPath = resolve(__dirname, "data.json");
 writeFileSync(outPath, JSON.stringify(data, null, 2));
-console.log(`data.json generated: jobs=${data.counts.jobs} candidates=${data.counts.candidates} (closed=${data.counts.jobs_closed})`);
+console.log(`data.json generated: jobs=${data.counts.jobs} (closed=${data.counts.jobs_closed})`);
