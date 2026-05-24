@@ -73,3 +73,20 @@ describe("scoreCc — multi-dimensional cc-signal (防君子不防小人)", () =
     expect(scoreCc(heavyRecentUsage).profile).toBeNull();
   });
 });
+
+describe("scoreCc — private / non-GitHub work via agent local self-report", () => {
+  it("a private-repo dev (no public footprint) gets real credit but cannot self-report to strong", () => {
+    const profile: AgentProfile = { skills: 8, mcpServers: 2, selfAuthoredMcp: true, localCcCommits: 300, localCcRepos: 10, localCcMonths: 9 };
+    const r = scoreCc(base, profile); // base = zero public evidence
+    expect(r.score).toBeGreaterThan(scoreCc(base).score); // local work counts
+    expect(r.band).not.toBe("strong"); // unverified self-report capped below strong
+    expect(r.band).toBe("moderate");
+    expect(r.breakdown.localUsage).toBeGreaterThan(0);
+  });
+
+  it("local self-report lifts the same public footprint a bit", () => {
+    const noLocal = scoreCc(heavyRecentUsage);
+    const withLocal = scoreCc(heavyRecentUsage, { localCcCommits: 50, localCcRepos: 4, localCcMonths: 6 });
+    expect(withLocal.score).toBeGreaterThan(noLocal.score);
+  });
+});

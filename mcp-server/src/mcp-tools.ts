@@ -61,6 +61,9 @@ function parseProfile(raw: unknown): AgentProfile | undefined {
   const hk = n(r.hooks); if (hk !== undefined) p.hooks = hk;
   const sc = n(r.slashCommands); if (sc !== undefined) p.slashCommands = sc;
   const cm = b(r.hasClaudeMd); if (cm !== undefined) p.hasClaudeMd = cm;
+  const lcc = n(r.localCcCommits); if (lcc !== undefined) p.localCcCommits = lcc;
+  const lcr = n(r.localCcRepos); if (lcr !== undefined) p.localCcRepos = lcr;
+  const lcm = n(r.localCcMonths); if (lcm !== undefined) p.localCcMonths = lcm;
   return Object.keys(p).length ? p : undefined;
 }
 

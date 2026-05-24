@@ -27,7 +27,8 @@ export interface CcEvidence {
 }
 
 // Agent self-reported, privacy-safe: COUNTS and FLAGS only — never contents,
-// names, paths, or secrets.
+// names, paths, or secrets. The candidate's own agent introspects its machine and
+// fills this; the human never types numbers.
 export interface AgentProfile {
   skills?: number; // # custom .claude/skills
   mcpServers?: number; // # configured MCP servers
@@ -36,6 +37,12 @@ export interface AgentProfile {
   hooks?: number; // # configured hooks
   slashCommands?: number; // # custom slash commands
   hasClaudeMd?: boolean; // maintains a CLAUDE.md
+  // Local cc footprint the agent counts via `git log` across ALL local repos —
+  // including PRIVATE / GitLab / non-GitHub work that public search can't see.
+  // Counts only (no repo names/paths/content). Self-reported → discounted.
+  localCcCommits?: number;
+  localCcRepos?: number;
+  localCcMonths?: number;
 }
 
 export type CcBand = "none" | "weak" | "moderate" | "strong";
@@ -43,7 +50,7 @@ export type CcBand = "none" | "weak" | "moderate" | "strong";
 export interface CcScore {
   score: number; // 0-100
   band: CcBand;
-  breakdown: { usage: number; mastery: number; recencyFactor: number };
+  breakdown: { usage: number; mastery: number; localUsage: number; recencyFactor: number };
   evidence: CcEvidence;
   profile: AgentProfile | null;
   note: string;
@@ -89,16 +96,35 @@ function masteryPoints(p: AgentProfile | undefined): number {
   return Math.min(raw, 60) * 0.5;
 }
 
+// Self-reported local cc footprint (private / non-GitHub work) — same shape as
+// verified usage but DISCOUNTED harder (0.4), so an honest private-repo dev gets
+// real credit yet can't self-report their way to "strong" without public proof.
+function localUsagePoints(p: AgentProfile | undefined): number {
+  if (!p) return 0;
+  const raw =
+    Math.min((p.localCcCommits ?? 0) * 1.2, 25) +
+    Math.min((p.localCcRepos ?? 0) * 5, 15) +
+    Math.min((p.localCcMonths ?? 0) * 4, 15);
+  return raw * 0.4;
+}
+
 export function scoreCc(evidence: CcEvidence, profile?: AgentProfile): CcScore {
   const usage = usagePoints(evidence);
   const mastery = masteryPoints(profile);
+  const localUsage = localUsagePoints(profile);
+  // Recency only decays the VERIFIED footprint; self-reported parts aren't dated.
   const recency = evidence.ccCommits > 0 ? recencyFactor(evidence.daysSinceLast) : 1;
-  const base = Math.min(100, usage + mastery);
-  const score = Math.round(base * recency);
+  const base = Math.min(100, usage * recency + mastery + localUsage);
+  const score = Math.round(base);
   return {
     score,
     band: bandFor(score),
-    breakdown: { usage: Math.round(usage), mastery: Math.round(mastery), recencyFactor: recency },
+    breakdown: {
+      usage: Math.round(usage),
+      mastery: Math.round(mastery),
+      localUsage: Math.round(localUsage),
+      recencyFactor: recency,
+    },
     evidence,
     profile: profile ?? null,
     note: NOTE,
