@@ -25,11 +25,13 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
   const body = {
     total_count: 99,
     items: [
-      { html_url: "https://github.com/a/x/commit/1", repository: { full_name: "a/x" }, commit: { message: "feat: thing" + TRAILER, author: { date: "2026-01-10T00:00:00Z" } } },
-      { html_url: "https://github.com/a/y/commit/2", repository: { full_name: "a/y" }, commit: { message: "fix: bug" + TRAILER, author: { date: "2026-03-05T00:00:00Z" } } },
-      { html_url: "https://github.com/a/x/commit/3", repository: { full_name: "a/x" }, commit: { message: "chore" + TRAILER, author: { date: "2026-02-02T00:00:00Z" } } },
+      { html_url: "https://github.com/a/x/commit/1", author: { login: "alicelu" }, repository: { full_name: "alicelu/x" }, commit: { message: "feat: thing" + TRAILER, author: { date: "2026-01-10T00:00:00Z" } } },
+      { html_url: "https://github.com/a/y/commit/2", author: { login: "alicelu" }, repository: { full_name: "alicelu/y" }, commit: { message: "fix: bug" + TRAILER, author: { date: "2026-03-05T00:00:00Z" } } },
+      { html_url: "https://github.com/a/x/commit/3", author: { login: "alicelu" }, repository: { full_name: "alicelu/x" }, commit: { message: "chore" + TRAILER, author: { date: "2026-02-02T00:00:00Z" } } },
       // NOISE: a human collaborator literally named Claude, NOT Claude Code → must be filtered out
-      { html_url: "https://github.com/a/z/commit/4", repository: { full_name: "a/z" }, commit: { message: "doc\n\nCo-authored-by: Claude Monet <claude@example.com>", author: { date: "2026-03-20T00:00:00Z" } } },
+      { html_url: "https://github.com/a/z/commit/4", author: { login: "alicelu" }, repository: { full_name: "alicelu/z" }, commit: { message: "doc\n\nCo-authored-by: Claude Monet <claude@example.com>", author: { date: "2026-03-20T00:00:00Z" } } },
+      // FOREIGN REPO: real trailer but in someone else's repo (spoofable author) → must be excluded
+      { html_url: "https://github.com/b/q/commit/9", author: { login: "someoneelse" }, repository: { full_name: "b/q" }, commit: { message: "x" + TRAILER, author: { date: "2026-03-25T00:00:00Z" } } },
     ],
   };
 
@@ -50,7 +52,7 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
   });
 
   it("all noise (no real fingerprint) → empty evidence", async () => {
-    const noise = { items: [{ html_url: "u", repository: { full_name: "a/z" }, commit: { message: "Co-authored-by: Claude Monet <claude@example.com>", author: { date: "2026-03-20T00:00:00Z" } } }] };
+    const noise = { items: [{ html_url: "u", repository: { full_name: "alicelu/z" }, commit: { message: "Co-authored-by: Claude Monet <claude@example.com>", author: { date: "2026-03-20T00:00:00Z" } } }] };
     const ev = await gatherCcEvidence("x", { fetchImpl: stubFetch({ body: noise }), now: NOW });
     expect(ev.ccCommits).toBe(0);
   });

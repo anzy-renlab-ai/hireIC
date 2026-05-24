@@ -14,6 +14,7 @@ export interface EvidenceDeps {
 
 interface SearchItem {
   html_url?: string;
+  author?: { login?: string }; // the GitHub user who authored the commit
   repository?: { full_name?: string };
   commit?: { author?: { date?: string }; message?: string };
 }
@@ -56,8 +57,18 @@ export async function gatherCcEvidence(
     if (!resp.ok) return empty;
     const json = (await resp.json()) as { items?: SearchItem[] };
     const all = Array.isArray(json.items) ? json.items : [];
-    // Precision filter: keep only commits whose message carries the exact trailer.
-    const items = all.filter((it) => CLAUDE_TRAILER_RE.test(it.commit?.message ?? ""));
+    // Precision + anti-spoof. Git commit authorship is forgeable (anyone can set
+    // author name/email/login locally), so GitHub commit search returns commits
+    // "by" the candidate that actually live in strangers' repos. The hard-to-fake
+    // signal is a commit in a repo the candidate OWNS (you can't push there without
+    // access). So keep only: (1) repo owner === candidate, AND (2) the exact Claude
+    // Code trailer in the message. (Misses cc work shipped as PRs to others' repos —
+    // a deliberate trade for trust; that's a future, PR-verified addition.)
+    const login = github.toLowerCase();
+    const items = all.filter((it) => {
+      const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
+      return owner === login && CLAUDE_TRAILER_RE.test(it.commit?.message ?? "");
+    });
     if (items.length === 0) return empty;
 
     const repos = new Set<string>();
