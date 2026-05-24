@@ -164,6 +164,13 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
           const evs = await Promise.all(logins.map((g) => gather(g)));
           const merged = mergeEvidence(evs);
           const cc = scoreCc(merged, profile);
+          // Non-cc code agents (Codex, etc.): score each from its OWN commit
+          // footprint (usage only — no cc self-report), clearly separate from cc.
+          const agentSignals = merged.agents
+            ? Object.entries(merged.agents)
+                .map(([name, ev]) => { const s = scoreCc(ev); return { name, score: s.score, band: s.band, commits: ev.ccCommits }; })
+                .sort((a, b) => b.score - a.score)
+            : [];
 
           // Deliver to the employer so they can reach the candidate. Needs the
           // candidate's contact + a job_id whose job has an email contact_value.
@@ -189,7 +196,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                   band: cc.band,
                   evidenceUrls: cc.evidence.sampleUrls,
                   priority: callArgs.priority === true,
-                  ...(merged.coAuthors ? { coAuthors: merged.coAuthors } : {}),
+                  ...(agentSignals.length ? { agentSignals } : {}),
                 },
                 send,
               );

@@ -15,7 +15,9 @@ export interface Application {
   band: string;
   evidenceUrls: string[];
   priority?: boolean; // priority-routed applicant
-  coAuthors?: Record<string, number>; // non-primary co-author tags on their commits (codename → count) — e.g. they work via a different code agent than Claude Code
+  // Non-cc code agents this candidate drives (Codex, etc.), each scored from its OWN
+  // commit footprint — reported SEPARATELY from the cc score, never folded into it.
+  agentSignals?: { name: string; score: number; band: string; commits: number }[];
 }
 
 export interface EmailMessage {
@@ -36,11 +38,14 @@ export function renderApplicationEmail(app: Application): EmailMessage {
   const evidence = app.evidenceUrls.length
     ? app.evidenceUrls.map((u) => `  - ${u}`).join("\n")
     : "  (无公开 commit 证据)";
-  // Non-Claude-Code agents leave their own co-author trailer; surface the codename
-  // so you know which tool this candidate actually drives.
-  const agents = app.coAuthors ? Object.entries(app.coAuthors).sort((a, b) => b[1] - a[1]) : [];
-  const agentLine = agents.length
-    ? [`使用的 code agent: ${agents.map(([name, n]) => `${name} (${n})`).join(", ")}`]
+  // Non-Claude-Code agents the candidate drives, each scored from its own commit
+  // footprint — reported SEPARATELY, explicitly NOT part of the cc 信号分.
+  const agentLines = (app.agentSignals ?? []).length
+    ? [
+        ``,
+        `其他 code agent 信号(非 cc,独立计分,供参考):`,
+        ...app.agentSignals!.map((a) => `  - ${a.name}: ${a.score}/100 (${a.band}) · ${a.commits} commits`),
+      ]
     : [];
   const text = [
     `一位候选人通过 hireIC 投递了你的职位。直接联系 ta 即可。`,
@@ -51,9 +56,9 @@ export function renderApplicationEmail(app: Application): EmailMessage {
     `职位: ${job}`,
     ``,
     `cc 信号分: ${app.score}/100 (${app.band})`,
-    ...agentLine,
     `证据 (真实 cc commit):`,
     evidence,
+    ...agentLines,
     ``,
     `cc 信号是信号不是认证 (防君子不防小人) — 请点开 evidence 链接人工核实。`,
     `— hireIC`,

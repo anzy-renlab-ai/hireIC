@@ -23,6 +23,18 @@ describe("renderApplicationEmail", () => {
     expect(m.text).toContain("72/100");
     expect(m.text).toContain("commit/1");
   });
+
+  it("renders non-cc agent signals in a SEPARATE section, explicitly not part of the cc score", () => {
+    const m = renderApplicationEmail({ ...app, agentSignals: [{ name: "Codex", score: 41, band: "moderate", commits: 23 }] });
+    expect(m.text).toContain("非 cc"); // clearly labelled as not the cc score
+    expect(m.text).toContain("Codex: 41/100 (moderate) · 23 commits");
+    // the headline cc score stays the candidate's cc number, untouched by codex
+    expect(m.subject).toContain("72");
+  });
+
+  it("no agent signals → no agent section", () => {
+    expect(renderApplicationEmail(app).text).not.toContain("非 cc");
+  });
 });
 
 describe("deliverApplication", () => {

@@ -101,8 +101,9 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
       { html_url: "c3", author: { login: "bob" }, repository: { full_name: "bob/app" }, commit: { message: "wip\n\nCo-authored-by: pat <1234+pat@users.noreply.github.com>", author: { date: "2026-03-03T00:00:00Z" } } },
     ] };
     const ev = await gatherCcEvidence("bob", { fetchImpl: stubFetch({ body: mixed }), now: NOW });
-    expect(ev.ccCommits).toBe(1); // only the anthropic-signed commit is scored
-    expect(ev.coAuthors).toEqual({ Codex: 1 }); // codex codename carried; human co-author dropped
+    expect(ev.ccCommits).toBe(1); // only the anthropic-signed commit is scored as cc
+    expect(Object.keys(ev.agents ?? {})).toEqual(["Codex"]); // codex carried; human co-author dropped
+    expect(ev.agents?.Codex?.ccCommits).toBe(1); // codex has its OWN footprint, scored separately
   });
 
   it("pure non-cc agent user (zero cc) still surfaces the codename for the employer", async () => {
@@ -110,7 +111,7 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
       { html_url: "x1", author: { login: "cara" }, repository: { full_name: "cara/svc" }, commit: { message: "build\n\nCo-authored-by: Codex <noreply@openai.com>", author: { date: "2026-03-10T00:00:00Z" } } },
     ] };
     const ev = await gatherCcEvidence("cara", { fetchImpl: stubFetch({ body: codexOnly }), now: NOW });
-    expect(ev.ccCommits).toBe(0); // no cc footprint → score 0
-    expect(ev.coAuthors).toEqual({ Codex: 1 }); // but the employer still learns the tool
+    expect(ev.ccCommits).toBe(0); // no cc footprint → cc score 0
+    expect(ev.agents?.Codex?.ccCommits).toBe(1); // but Codex footprint captured + scorable for the employer
   });
 });

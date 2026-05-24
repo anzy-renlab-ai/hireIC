@@ -34,15 +34,20 @@ const CLAUDE_TRAILER_RE = /co-authored-by:\s*claude[^\n>]*<noreply@anthropic\.co
 // below keeps the former and drops the latter. The anthropic address is the
 // primary fingerprint scored elsewhere, so it's excluded from this side-channel.
 const COAUTHOR_RE = /co-authored-by:\s*([^<\n]+?)\s*<([^>\n]+)>/gi;
-function collectCoAuthors(message: string, into: Record<string, number>): void {
+// Distinct non-primary code-agent codenames on a commit. Vendor agents sign with a
+// `noreply@<domain>` address; a human's GitHub privacy email is
+// `…@users.noreply.github.com` (no `noreply@` segment) — the `noreply@` test keeps
+// the former, drops the latter. Anthropic is the primary fingerprint, scored
+// separately, so it's excluded here.
+function agentCodenames(message: string): string[] {
+  const names: string[] = [];
   for (const m of message.matchAll(COAUTHOR_RE)) {
     const label = (m[1] ?? "").trim();
     const addr = (m[2] ?? "").trim().toLowerCase();
-    if (!label) continue;
-    if (!addr.includes("noreply@")) continue; // human privacy emails / real emails → skip
-    if (addr.includes("anthropic.com")) continue; // primary fingerprint, scored separately
-    into[label] = (into[label] ?? 0) + 1;
+    if (!label || !addr.includes("noreply@") || addr.includes("anthropic.com")) continue;
+    names.push(label);
   }
+  return [...new Set(names)];
 }
 
 // Only count commits within the plausible window (cc-era to now). Commits dated
@@ -68,6 +73,30 @@ function sampleDensity(items: SearchItem[]): number {
   if (uniqRatio < 0.4) k *= 0.6;
   if (days <= 1) k *= 0.6;
   return Math.max(0.4, k);
+}
+
+// Turn a set of owner-scoped, in-era commits into a footprint: volume, breadth
+// (distinct repos), cadence (distinct YYYY-MM), recency, span, sample links, and
+// the distribution-normalization weight. Reused for the primary cc fingerprint and
+// for each non-cc agent's own footprint.
+function buildEvidence(items: SearchItem[], now: number): CcEvidence {
+  const repos = new Set<string>();
+  const months = new Set<string>();
+  const dates: number[] = [];
+  const sampleUrls: string[] = [];
+  for (const it of items) {
+    const repo = it.repository?.full_name;
+    if (repo) repos.add(repo);
+    const d = it.commit?.author?.date;
+    if (d) {
+      const t = Date.parse(d);
+      if (!Number.isNaN(t)) { dates.push(t); months.add(d.slice(0, 7)); }
+    }
+    if (it.html_url && sampleUrls.length < 3) sampleUrls.push(it.html_url);
+  }
+  const spanDays = dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
+  const daysSinceLast = dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
+  return { ccCommits: items.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls, density: sampleDensity(items) };
 }
 
 export async function gatherCcEvidence(
@@ -96,8 +125,8 @@ export async function gatherCcEvidence(
 
   const perPage = deps.pageSize ?? 100;
   const MAX_PAGES = 2; // ≤100 commits → 1 request; only heavy users trigger a 2nd. Don't over-fetch.
-  const kept: SearchItem[] = [];
-  const coAuthors: Record<string, number> = {};
+  const kept: SearchItem[] = []; // anthropic-signed → scored as the cc footprint
+  const agentItems: Record<string, SearchItem[]> = {}; // codename → that agent's commits
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=${perPage}&page=${page}&sort=author-date&order=desc`;
@@ -113,35 +142,20 @@ export async function gatherCcEvidence(
         if (owner !== login || !plausibleCcDate(it.commit?.author?.date, now)) continue;
         const message = it.commit?.message ?? "";
         if (CLAUDE_TRAILER_RE.test(message)) kept.push(it);
-        collectCoAuthors(message, coAuthors); // note any non-primary collaborators
+        for (const name of agentCodenames(message)) (agentItems[name] ??= []).push(it);
       }
     } catch {
       break; // fail-open: keep whatever we already collected
     }
     if (rawLen < perPage) break; // last page reached
   }
-  const tags = Object.keys(coAuthors).length ? coAuthors : undefined;
-  if (kept.length === 0) return tags ? { ...empty, coAuthors: tags } : empty;
 
-  const repos = new Set<string>();
-  const months = new Set<string>(); // YYYY-MM buckets → cadence
-  const dates: number[] = [];
-  const sampleUrls: string[] = [];
-  for (const it of kept) {
-    const repo = it.repository?.full_name;
-    if (repo) repos.add(repo);
-    const d = it.commit?.author?.date;
-    if (d) {
-      const t = Date.parse(d);
-      if (!Number.isNaN(t)) {
-        dates.push(t);
-        months.add(d.slice(0, 7));
-      }
-    }
-    if (it.html_url && sampleUrls.length < 3) sampleUrls.push(it.html_url);
-  }
-  const spanDays = dates.length >= 2 ? Math.round((Math.max(...dates) - Math.min(...dates)) / 86_400_000) : 0;
-  const daysSinceLast = dates.length > 0 ? Math.max(0, Math.round((now - Math.max(...dates)) / 86_400_000)) : Infinity;
+  // Per-agent footprints (non-cc), scored separately + clearly labelled downstream.
+  const agents: Record<string, CcEvidence> = {};
+  for (const [name, items] of Object.entries(agentItems)) agents[name] = buildEvidence(items, now);
+  const agentsOut = Object.keys(agents).length ? agents : undefined;
 
-  return { ccCommits: kept.length, ccRepos: repos.size, activeMonths: months.size, daysSinceLast, spanDays, sampleUrls, density: sampleDensity(kept), ...(tags ? { coAuthors: tags } : {}) };
+  if (kept.length === 0) return agentsOut ? { ...empty, agents: agentsOut } : empty;
+  const ev = buildEvidence(kept, now);
+  return agentsOut ? { ...ev, agents: agentsOut } : ev;
 }
