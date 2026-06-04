@@ -17,6 +17,7 @@
     "dev": "tsx src/local.ts"
   },
   "devDependencies": {
+    "@types/node": "^25.9.0",
     "tsx": "^4.19.0"
   },
   "engines": {

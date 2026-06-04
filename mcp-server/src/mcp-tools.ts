@@ -67,6 +67,8 @@ function parseProfile(raw: unknown): AgentProfile | undefined {
   const lcr = n(r.localCcRepos); if (lcr !== undefined) p.localCcRepos = lcr;
   const lcm = n(r.localCcMonths); if (lcm !== undefined) p.localCcMonths = lcm;
   const lct = n(r.localCcTenureMonths); if (lct !== undefined) p.localCcTenureMonths = lct;
+  const ct = n(r.correctionTurns); if (ct !== undefined) p.correctionTurns = ct;
+  const ad = n(r.activeDays); if (ad !== undefined) p.activeDays = ad;
   return Object.keys(p).length ? p : undefined;
 }
 
@@ -104,7 +106,7 @@ const TOOL_DESCRIPTORS: McpToolDescriptor[] = [
         contact: { type: "string", description: "How the employer can reach you (email / wechat / @handle). Sent ONLY to that one employer." },
         profile: {
           type: "object",
-          description: "Optional, agent self-reported, PRIVACY-SAFE counts/flags of your cc setup — NO file contents/names/paths/secrets. Keys: skills, mcpServers, selfAuthoredMcp, subagents, hooks, slashCommands, hasClaudeMd.",
+          description: "Optional, agent self-reported, PRIVACY-SAFE counts/flags of your cc setup — NO file contents/names/paths/secrets. Keys: skills, mcpServers, selfAuthoredMcp, subagents, hooks, slashCommands, hasClaudeMd, correctionTurns, activeDays.",
           additionalProperties: true,
         },
       },
@@ -185,6 +187,11 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
               delivery = { delivered: false, reason: `job_id '${jobId}' not found` };
             } else {
               const send = args.sendImpl ?? emailSender(process.env);
+              const recruiterName = process.env.HIREIC_RECRUITER_NAME;
+              const recruiterContact = process.env.HIREIC_RECRUITER_CONTACT;
+              const recruiter = recruiterName && recruiterContact
+                ? { name: recruiterName, contact: recruiterContact }
+                : undefined;
               delivery = await deliverApplication(
                 {
                   github,
@@ -197,6 +204,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                   evidenceUrls: cc.evidence.sampleUrls,
                   priority: callArgs.priority === true,
                   ...(agentSignals.length ? { agentSignals } : {}),
+                  ...(recruiter ? { recruiter } : {}),
                 },
                 send,
               );

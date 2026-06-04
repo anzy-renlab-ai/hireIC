@@ -5,6 +5,8 @@
 // never published. Transport is injected (SendFn) so this is testable and
 // provider-agnostic; the default sender is env-configured (see emailSender).
 
+import type { CcBand } from "./score.js";
+
 export interface Application {
   github: string;
   contact: string; // how the employer reaches the candidate (email / wechat / @handle)
@@ -12,12 +14,16 @@ export interface Application {
   jobTitle: string;
   employerContact: string; // recipient — the job's contact_value
   score: number;
-  band: string;
+  band: CcBand;
   evidenceUrls: string[];
   priority?: boolean; // priority-routed applicant
   // Non-cc code agents this candidate drives (Codex, etc.), each scored from its OWN
   // commit footprint — reported SEPARATELY from the cc score, never folded into it.
   agentSignals?: { name: string; score: number; band: string; commits: number }[];
+  // When set + band is "strong", the email appends a copy-pasteable outreach
+  // draft (and a mailto: link if contact is an email) so the employer can reach
+  // the candidate in one click instead of writing from scratch.
+  recruiter?: { name: string; contact: string };
 }
 
 export interface EmailMessage {
@@ -32,6 +38,55 @@ export interface SendResult {
 }
 
 export type SendFn = (msg: EmailMessage) => Promise<SendResult>;
+
+// Inbox-sort prefix: lets the employer's mail rules auto-route by signal
+// strength without parsing the score.
+function bandPrefix(band: CcBand): string {
+  if (band === "strong") return "[hireIC ✓]";
+  if (band === "moderate") return "[hireIC ~]";
+  return "[hireIC ?]";
+}
+
+function isEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
+// Outreach draft for strong candidates. Hand-rolled (no LLM yet) — fact-only
+// fields, asks for the candidate's name (we don't have it), embeds the
+// recruiter's signature. Skipped unless the candidate is "strong" AND recruiter
+// info is configured, so we never invent a signature. Keying off the band (not a
+// raw score cutoff) keeps the "strong" threshold owned solely by score.ts.
+function outreachBlock(app: Application): string[] {
+  if (app.band !== "strong" || !app.recruiter) return [];
+  const subject = `${app.jobTitle} · 想跟你聊聊`;
+  const body = [
+    `你好,`,
+    ``,
+    `我是 ${app.recruiter.name},看到你通过 hireIC 投了 ${app.jobTitle}。`,
+    `投递只带了 GitHub (${app.github}),方便回信时告诉我怎么称呼你吗?`,
+    ``,
+    `你的 cc 信号是 ${app.score}/100 (${app.band})——公开 commit 里 cc 真的在 daily driver 位上跑,这是我们的硬门槛。`,
+    ``,
+    `想约个 30 分钟聊聊。方便就直接回邮件,或加微信/电话 ${app.recruiter.contact}。`,
+    ``,
+    `— ${app.recruiter.name}`,
+  ].join("\n");
+  const lines = [
+    ``,
+    `─── 推荐回复 (strong 候选人,可直接复制发出) ───`,
+    `To: ${app.contact}`,
+    `Subject: ${subject}`,
+    ``,
+    body,
+    ``,
+  ];
+  if (isEmail(app.contact)) {
+    const mailto = `mailto:${app.contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    lines.push(`一键打开邮件 app: ${mailto}`);
+  }
+  lines.push(`─────────────────────────────────────────`);
+  return lines;
+}
 
 export function renderApplicationEmail(app: Application): EmailMessage {
   const job = app.jobId ? `${app.jobTitle} (${app.jobId})` : app.jobTitle;
@@ -59,13 +114,14 @@ export function renderApplicationEmail(app: Application): EmailMessage {
     `证据 (真实 cc commit):`,
     evidence,
     ...agentLines,
+    ...outreachBlock(app),
     ``,
     `cc 信号是信号不是认证 (防君子不防小人) — 请点开 evidence 链接人工核实。`,
     `— hireIC`,
   ].join("\n");
   return {
     to: app.employerContact,
-    subject: `[hireIC] ${app.github} 申请 ${app.jobTitle} · cc ${app.score}/100 (${app.band})`,
+    subject: `${bandPrefix(app.band)} ${app.github} 申请 ${app.jobTitle} · cc ${app.score}/100 (${app.band})`,
     text,
   };
 }

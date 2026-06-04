@@ -96,6 +96,116 @@ describe("scoreCc — private / non-GitHub work via agent local self-report", ()
   });
 });
 
+describe("scoreCc — recalibrated: real output dominates gameable configs", () => {
+  // The flat-cap bug: verified volume capped at ~21 commits and breadth at 3 repos,
+  // so a prolific shipper scored identically to a light user. A curve must keep
+  // separating real output across the FULL range, with no early plateau.
+  it("OUTPUT SEPARATION (verified): more real commits keep scoring higher — no early plateau", () => {
+    const s5 = scoreCc({ ...base, ccCommits: 5, ccRepos: 1, activeMonths: 1, daysSinceLast: 5 });
+    const s50 = scoreCc({ ...base, ccCommits: 50, ccRepos: 5, activeMonths: 6, daysSinceLast: 5 });
+    const s500 = scoreCc({ ...base, ccCommits: 500, ccRepos: 15, activeMonths: 12, daysSinceLast: 5 });
+    expect(s50.score).toBeGreaterThan(s5.score + 8);
+    expect(s500.score).toBeGreaterThan(s50.score + 8); // OLD code: s500 === s50 (both capped) → this is the bug
+  });
+
+  // 5330 real commits / 59 repos must outscore a modest local footprint, not tie it.
+  it("OUTPUT SEPARATION (local self-report): prolific local work beats a modest local footprint", () => {
+    const big = scoreCc(base, { localCcCommits: 5330, localCcRepos: 59, localCcMonths: 14 });
+    const small = scoreCc(base, { localCcCommits: 50, localCcRepos: 5, localCcMonths: 6 });
+    expect(big.score).toBeGreaterThan(small.score + 5); // OLD code: both === 16.5 (capped) → ties
+  });
+
+  // Cheapest-to-fake configs (statusline, CLAUDE.md, a lone hook) must barely move
+  // the needle; actually building on cc (self-authored MCP, many skills) is worth more.
+  it("GAMEABLE CONFIGS DEMOTED: one-line fakes contribute far less than real building", () => {
+    const cheap = scoreCc(base, { hasStatusline: true, hasClaudeMd: true, hooks: 1 }).breakdown.mastery;
+    const built = scoreCc(base, { selfAuthoredMcp: true, skills: 5 }).breakdown.mastery;
+    expect(cheap).toBeLessThanOrEqual(3);
+    expect(built).toBeGreaterThan(cheap * 3);
+  });
+
+  // The real regression we are fixing: a dev with 5330 real Claude-signed commits
+  // across 59 repos scored 27/weak. Their footprint must land at least moderate.
+  it("REGRESSION (wencheng): heavy real output (mostly local) lands at least moderate, not weak", () => {
+    const r = scoreCc(
+      { ...base, ccCommits: 40, ccRepos: 3, activeMonths: 4, daysSinceLast: 10 },
+      { localCcCommits: 5330, localCcRepos: 59, localCcMonths: 14, localCcTenureMonths: 16, skills: 2, hooks: 1 },
+    );
+    expect(r.band).not.toBe("weak");
+    expect(r.score).toBeGreaterThanOrEqual(30);
+  });
+
+  // The strong/moderate boundary gates the employer-outreach email — it must NOT
+  // turn on a single farmable commit. The proof ramp makes crossing it continuous.
+  it("NO CLIFF: the verified-proof ramp is smooth, not a 25-point jump at one commit", () => {
+    const prof: AgentProfile = {
+      skills: 20, mcpServers: 5, selfAuthoredMcp: true, subagents: 8, hooks: 10, slashCommands: 10,
+      hasClaudeMd: true, outputStyles: 5, hasStatusline: true,
+      localCcCommits: 9999, localCcRepos: 80, localCcMonths: 20, localCcTenureMonths: 24,
+    };
+    const at23 = scoreCc({ ...base, ccCommits: 23, ccRepos: 4, activeMonths: 3, daysSinceLast: 5 }, prof).score;
+    const at27 = scoreCc({ ...base, ccCommits: 27, ccRepos: 4, activeMonths: 3, daysSinceLast: 5 }, prof).score;
+    expect(at27 - at23).toBeLessThan(10); // OLD hard gate jumped ~24 points across the 25-commit line
+  });
+
+  // scoreCc is an exported primitive — it must fail CLOSED (never invent a strong
+  // score) on garbage input, and a malformed density must not be able to inflate.
+  it("FAIL-SAFE: non-finite or malformed evidence never yields a bogus strong score", () => {
+    const nan = scoreCc({ ...base, ccCommits: Number.NaN });
+    expect(Number.isFinite(nan.score)).toBe(true);
+    expect(nan.band).not.toBe("strong");
+    const clamped = { ...base, ccCommits: 50, ccRepos: 5, activeMonths: 5, daysSinceLast: 5 };
+    expect(scoreCc({ ...clamped, density: 999 }).score).toBe(scoreCc({ ...clamped, density: 1 }).score);
+  });
+
+  // Anti-gaming must survive the recalibration: maxed cheap self-report + a token
+  // verified footprint still cannot buy "strong".
+  it("ANTI-GAMING PRESERVED: maxed configs + huge self-claimed local + token verified stays sub-strong", () => {
+    const gamer = scoreCc(
+      { ...base, ccCommits: 2, ccRepos: 1, activeMonths: 1, daysSinceLast: 5 },
+      {
+        skills: 20, mcpServers: 5, selfAuthoredMcp: true, subagents: 8, hooks: 10, slashCommands: 10,
+        hasClaudeMd: true, outputStyles: 5, hasStatusline: true,
+        localCcCommits: 9999, localCcRepos: 80, localCcMonths: 20, localCcTenureMonths: 24,
+      },
+    );
+    expect(gamer.band).not.toBe("strong");
+    expect(gamer.score).toBeLessThan(60);
+  });
+});
+
+describe("scoreCc — critique dimension (catching cc's mistakes / day)", () => {
+  it("a critique rate adds a small bonus over the same profile without it", () => {
+    const p: AgentProfile = { skills: 1 };
+    const withCritique = scoreCc(heavyRecentUsage, { ...p, correctionTurns: 40, activeDays: 20 }); // 2/day
+    const without = scoreCc(heavyRecentUsage, p);
+    expect(withCritique.score).toBeGreaterThan(without.score);
+    expect(withCritique.breakdown.critique).toBeGreaterThan(0);
+  });
+
+  it("rate, not raw count, drives it: same corrections over more days scores lower", () => {
+    const dense = scoreCc(heavyRecentUsage, { correctionTurns: 30, activeDays: 10 }).breakdown.critique; // 3/day
+    const sparse = scoreCc(heavyRecentUsage, { correctionTurns: 30, activeDays: 90 }).breakdown.critique; // 0.33/day
+    expect(dense).toBeGreaterThan(sparse);
+  });
+
+  it("is capped (a spammer typing 'wrong' all day can't run it away)", () => {
+    const insane = scoreCc(heavyRecentUsage, { correctionTurns: 100000, activeDays: 1 }).breakdown.critique;
+    expect(insane).toBeLessThanOrEqual(5);
+  });
+
+  it("missing / zero days → 0, no NaN", () => {
+    expect(scoreCc(heavyRecentUsage, { skills: 1 }).breakdown.critique).toBe(0);
+    expect(scoreCc(heavyRecentUsage, { correctionTurns: 5, activeDays: 0 }).breakdown.critique).toBe(0);
+  });
+
+  it("critique alone (no verified usage) still cannot reach strong", () => {
+    const r = scoreCc(base, { correctionTurns: 99999, activeDays: 1 });
+    expect(r.band).not.toBe("strong");
+    expect(r.score).toBeLessThan(60);
+  });
+});
+
 describe("mergeEvidence — multiple GitHub accounts", () => {
   it("sums volume/breadth, takes most-recent recency, max months", () => {
     const a: CcEvidence = { ccCommits: 30, ccRepos: 2, activeMonths: 3, daysSinceLast: 40, spanDays: 60, sampleUrls: ["x"] };
