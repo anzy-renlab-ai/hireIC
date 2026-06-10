@@ -125,6 +125,7 @@ const TOOL_DESCRIPTORS: McpToolDescriptor[] = [
       properties: {
         github: { type: "string", description: "Your primary GitHub username (no @)." },
         githubs: { type: "array", items: { type: "string" }, description: "Optional: additional GitHub usernames (personal + work) to aggregate." },
+        commit_emails: { type: "array", items: { type: "string" }, description: "Optional: your git author email(s). GitHub's author: search only matches emails LINKED to your account; pass these so commits made with an unlinked email are still found (recall, not score). Public info — they're already in your commit history." },
         job_id: { type: "string", description: "The job id (slug) you're applying to. Required to actually reach the employer." },
         contact: { type: "string", description: "How the employer can reach you (email / wechat / @handle). Sent ONLY to that one employer." },
         profile: {
@@ -183,8 +184,14 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
           const profile = parseProfile(callArgs.profile);
           const localAgents = parseLocalAgents(callArgs.localAgents); // display-only, never scored
 
+          // Candidate git author emails → extra author-email: queries (recall for commits
+          // whose email isn't linked to the GitHub account). Validated + capped.
+          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const commitEmails = Array.isArray(callArgs.commit_emails)
+            ? (callArgs.commit_emails as unknown[]).filter((e): e is string => typeof e === "string" && emailRe.test(e)).slice(0, 3)
+            : [];
           const gather =
-            args.evidenceFn ?? ((g: string) => gatherCcEvidence(g, args.token ? { token: args.token } : {}));
+            args.evidenceFn ?? ((g: string) => gatherCcEvidence(g, { ...(args.token ? { token: args.token } : {}), ...(commitEmails.length ? { emails: commitEmails } : {}) }));
           // A candidate may list extra GitHub accounts (personal + work) — gather
           // each and merge so multi-account footprints aren't undercounted.
           const ghRe = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
@@ -195,6 +202,12 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
           const evs = await Promise.all(logins.map((g) => gather(g)));
           const merged = mergeEvidence(evs);
           const cc = scoreCc(merged, profile);
+          // Big local footprint but ~nothing public usually means the candidate commits
+          // with an email not linked to their GitHub account — public search can't see it.
+          // Tell them how to fix the RECALL (this changes what's found, not the score).
+          const hint = (profile?.localCcCommits ?? 0) >= 20 && merged.ccCommits <= 2 && !merged.incomplete
+            ? "本地 cc 提交很多但公开搜索几乎为零 —— 你的 commit 邮箱可能没关联到 GitHub 账号。去 github.com/settings/emails 添加该邮箱(或重投时带上 commit_emails),公开足迹就能被检索到(影响召回,不影响评分)。"
+            : undefined;
           // Non-cc code agents (Codex, etc.): score each from its OWN commit
           // footprint (usage only — no cc self-report), clearly separate from cc.
           const agentSignals = merged.agents
@@ -260,6 +273,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                 evidence: cc.evidence,
                 delivery,
                 ...(evidenceIncomplete ? { evidence_incomplete: true } : {}),
+                ...(hint ? { hint } : {}),
                 note: cc.note,
               }),
             ],

@@ -95,6 +95,33 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
     expect(ev.ccCommits).toBe(1); // only the in-era commit counts
   });
 
+  // C11 recall fix: GitHub's `author:` qualifier only matches commits whose git email
+  // is LINKED to the account. Candidates who commit with an unlinked email score ~0 on
+  // the public search despite real output. Extra `author-email:` queries close the gap.
+  function urlRoutedFetch(byUrl: (url: string) => unknown): typeof fetch {
+    return (async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input.toString();
+      return { status: 200, ok: true, json: async () => byUrl(decodeURIComponent(url)) } as Response;
+    }) as typeof fetch;
+  }
+
+  it("also searches by candidate-supplied commit emails (recall for unlinked git emails)", async () => {
+    const fetchImpl = urlRoutedFetch((url) =>
+      url.includes("author-email:me@x.com")
+        ? { items: [{ sha: "s1", html_url: "u1", author: { login: null }, repository: { full_name: "alicelu/app" }, commit: { message: "feat" + TRAILER, author: { date: "2026-03-01T00:00:00Z" } } }] }
+        : { items: [] }, // author:login finds nothing (email not linked)
+    );
+    const ev = await gatherCcEvidence("alicelu", { fetchImpl, now: NOW, emails: ["me@x.com"] });
+    expect(ev.ccCommits).toBe(1);
+  });
+
+  it("de-dupes a commit returned by BOTH author and author-email queries (by sha)", async () => {
+    const item = { sha: "dup", html_url: "u", author: { login: "alicelu" }, repository: { full_name: "alicelu/app" }, commit: { message: "x" + TRAILER, author: { date: "2026-03-01T00:00:00Z" } } };
+    const fetchImpl = urlRoutedFetch(() => ({ items: [item] })); // every query returns the same commit
+    const ev = await gatherCcEvidence("alicelu", { fetchImpl, now: NOW, emails: ["me@x.com"] });
+    expect(ev.ccCommits).toBe(1); // counted once, not once per query
+  });
+
   it("only hits api.github.com, queries author + a co-author trailer, no redirect chasing", async () => {
     const cap: { url?: string; init?: RequestInit | undefined } = {};
     await gatherCcEvidence("alice-lu", { fetchImpl: stubFetch({ body, capture: cap }), now: NOW });

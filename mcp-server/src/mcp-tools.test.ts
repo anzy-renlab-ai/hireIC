@@ -153,6 +153,22 @@ describe("apply tool — cc-signal scoring + delivery to the employer", () => {
     expect(sent!.text).not.toContain("private-thing");
   });
 
+  // C11: when a candidate has a big LOCAL cc footprint but public search finds ~nothing,
+  // the likely cause is an unlinked commit email — surface an actionable hint, not silence.
+  it("hints at the unlinked-email recall gap when local footprint is large but public ~0", async () => {
+    const lowPublic = async () => ({ ccCommits: 1, ccRepos: 1, activeMonths: 1, daysSinceLast: 5, spanDays: 0, sampleUrls: [] });
+    const { call } = createMcpTools(makeArgs({ evidenceFn: lowPublic }));
+    const res = await call("apply", { github: "alicelu", profile: { localCcCommits: 50 } });
+    const p = JSON.parse(res.content[0]!.text);
+    expect(p.hint).toMatch(/邮箱|email|关联/i);
+  });
+
+  it("no recall hint when the public footprint is healthy", async () => {
+    const { call } = createMcpTools(makeArgs({ evidenceFn })); // heavyEvidence: 80 commits
+    const res = await call("apply", { github: "alicelu", profile: { localCcCommits: 50 } });
+    expect(JSON.parse(res.content[0]!.text).hint).toBeUndefined();
+  });
+
   it("no contact/job_id → returns the score but does not deliver", async () => {
     const { call } = createMcpTools(makeArgs({ evidenceFn }));
     const res = await call("apply", { github: "alicelu" });

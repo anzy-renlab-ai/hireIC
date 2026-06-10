@@ -274,7 +274,7 @@ async function main() {
   console.log(`
 hireIC 投递 · ${jobId}
 即将:① 认出你的 GitHub  ② 在本地数一数你的 cc 使用痕迹 + 对话里纠正 cc 的次数,以及你用 Codex/Kiro 的痕迹(只在你机器上数,只发数量)  ③ 提交评估
-🔒 隐私:只发送计数 + 你的公开 GitHub 用户名 + 联系方式。代码与对话内容只在本地参与计数,绝不发送内容、文件名、路径或密钥,不上传任何文件。脚本开源可审:https://hire.renlab.ai/cli.mjs
+🔒 隐私:只发送计数 + 你的公开 GitHub 用户名 + 联系方式 + 你的 git 提交邮箱(已公开在 commit 里,用于检索你的公开足迹)。代码与对话内容只在本地参与计数,绝不发送内容、文件名、路径或密钥,不上传任何文件。脚本开源可审:https://hire.renlab.ai/cli.mjs
 `);
 
   // 1) GitHub identity — auto-detected (this is just your public login, no secret).
@@ -345,6 +345,7 @@ hireIC 投递 · ${jobId}
   const months = new Set();
   const ccShas = new Set();   // de-dupe commits across worktrees / roots
   const ccRepos = new Set();  // de-dupe repos by their shared git common dir
+  const ccEmails = new Set(); // candidate emails on cc-authoring repos → server recall (author-email:)
   let scanned = 0;
   for (const dir of repoDirs) {
     if (Date.now() > DEADLINE) { progress("  ⏱ 仓库扫描超时,用已得计数(下界)"); break; }
@@ -367,8 +368,14 @@ hireIC 投递 · ${jobId}
       if (m) months.add(m);
       matched = true;
     }
-    if (matched) ccRepos.add(repoId);
+    if (matched) { ccRepos.add(repoId); if (email) ccEmails.add(email); }
   }
+  // Git emails the candidate actually authors cc commits under. A `…@users.noreply.github.com`
+  // address is GitHub-linked by definition (author:login already finds it), so only NON-noreply
+  // emails add recall; send up to 3 so the server can author-email: them.
+  const commitEmails = [...ccEmails]
+    .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && !/noreply/i.test(e))
+    .slice(0, 3);
   const localCcCommits = ccShas.size, localCcRepos = ccRepos.size;
   const sorted = [...months].sort();
   const tenure = sorted.length ? (() => { const [y, m] = sorted[0].split("-").map(Number); const n = new Date(); return Math.max(0, n.getFullYear() * 12 + n.getMonth() + 1 - (y * 12 + m)); })() : 0;
@@ -395,8 +402,12 @@ hireIC 投递 · ${jobId}
   const kiro = countKiroCli(join(home, ".kiro")); if (kiro) localAgents.kiro = kiro;
 
   // 4) submit — show the candidate the EXACT payload first, so they can see for
-  // themselves that only counts + github + contact leave the machine.
-  const payload = { github, contact, job_id: jobId, profile, ...(Object.keys(localAgents).length ? { localAgents } : {}) };
+  // themselves that only counts + github + contact (+ public git emails) leave the machine.
+  const payload = {
+    github, contact, job_id: jobId, profile,
+    ...(commitEmails.length ? { commit_emails: commitEmails } : {}),
+    ...(Object.keys(localAgents).length ? { localAgents } : {}),
+  };
   console.log("本次发送的全部数据(就这些,全是计数/标志,无代码内容):");
   console.log(JSON.stringify(payload, null, 2).split("\n").map((l) => "  " + l).join("\n"));
   console.log("");
@@ -411,7 +422,8 @@ hireIC 投递 · ${jobId}
   const r = await resp.json();
   console.log(`✓ 已投递 ${jobId} as @${github}`);
   console.log(`  cc 信号分: ${r.cc_score}/100 (${r.band})`);
-  console.log(`  招聘方${r.delivery?.delivered ? "已收到你的申请,会直接联系你" : "投递已记录"}.`);
+  if (r.hint) console.log(`  ⓘ ${r.hint}`);
+  console.log(`  招聘方${r.delivery?.delivered ? "已收到你的申请,会直接联系你" : (r.delivery?.reason || "投递已记录")}.`);
   console.log(`🔒 完成。上面那段 JSON 就是离开你机器的全部内容 —— 没有代码、没有文件、没有隐私。`);
 }
 

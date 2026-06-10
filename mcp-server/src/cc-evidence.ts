@@ -11,9 +11,11 @@ export interface EvidenceDeps {
   token?: string;
   now?: number; // injectable clock for deterministic recency in tests
   pageSize?: number; // injectable page size for tests (default 100)
+  emails?: string[]; // candidate git author emails → extra author-email: queries (recall fix)
 }
 
 interface SearchItem {
+  sha?: string; // commit sha — dedup key across author:/author-email: queries and pages
   html_url?: string;
   author?: { login?: string }; // the GitHub user who authored the commit
   repository?: { full_name?: string };
@@ -154,9 +156,6 @@ export async function gatherCcEvidence(
   // commits whose repo is owned by the candidate and whose message carries the
   // exact trailer. (PR contributions to others' repos are a future addition.)
   const login = github.toLowerCase();
-  // Broadened to any co-author trailer (all agent trailers contain "noreply"); we
-  // classify each result in code — anthropic-signed → scored, others → codename only.
-  const q = `author:${github} Co-authored-by noreply`;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -168,29 +167,49 @@ export async function gatherCcEvidence(
   const kept: SearchItem[] = []; // anthropic-signed → scored as the cc footprint
   const agentItems: Record<string, SearchItem[]> = {}; // codename → that agent's commits
   let incomplete = false; // a fetch failed/threw → the footprint below is a lower bound, not a confirmed 0
+  const seen = new Set<string>(); // de-dupe by sha across queries + pages
 
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=${perPage}&page=${page}&sort=author-date&order=desc`;
-    let rawLen = 0;
-    try {
-      const resp = await fetchImpl(url, { headers, redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-      if (!resp.ok) { incomplete = true; break; } // 403/429/5xx — distinguish from a real empty result
-      const json = (await resp.json()) as { items?: SearchItem[] };
-      const all = Array.isArray(json.items) ? json.items : [];
-      rawLen = all.length;
-      for (const it of all) {
-        const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
-        if (owner !== login || !plausibleCcDate(it.commit?.author?.date, now)) continue;
-        const message = it.commit?.message ?? "";
-        if (CLAUDE_TRAILER_RE.test(message)) kept.push(it);
-        for (const name of agentCodenames(message)) (agentItems[name] ??= []).push(it);
+  // Keep only own-repo, in-era commits; classify each exactly once (cc → scored,
+  // other agent trailers → codename), deduping by sha so the same commit returned by
+  // multiple queries/pages is never double-counted.
+  const processItem = (it: SearchItem): void => {
+    const owner = (it.repository?.full_name ?? "").split("/")[0]?.toLowerCase();
+    if (owner !== login || !plausibleCcDate(it.commit?.author?.date, now)) return;
+    const key = it.sha ?? it.html_url;
+    if (key) { if (seen.has(key)) return; seen.add(key); }
+    const message = it.commit?.message ?? "";
+    if (CLAUDE_TRAILER_RE.test(message)) kept.push(it);
+    for (const name of agentCodenames(message)) (agentItems[name] ??= []).push(it);
+  };
+
+  const runQuery = async (query: string, maxPages: number): Promise<void> => {
+    for (let page = 1; page <= maxPages; page++) {
+      const url = `https://api.github.com/search/commits?q=${encodeURIComponent(query)}&per_page=${perPage}&page=${page}&sort=author-date&order=desc`;
+      let rawLen = 0;
+      try {
+        const resp = await fetchImpl(url, { headers, redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+        if (!resp.ok) { incomplete = true; break; } // 403/429/5xx — distinguish from a real empty result
+        const json = (await resp.json()) as { items?: SearchItem[] };
+        const all = Array.isArray(json.items) ? json.items : [];
+        rawLen = all.length;
+        for (const it of all) processItem(it);
+      } catch {
+        incomplete = true; // network/timeout — fail-open but mark the result as partial
+        break;
       }
-    } catch {
-      incomplete = true; // network/timeout — fail-open but mark the result as partial
-      break;
+      if (rawLen < perPage) break; // last page reached
     }
-    if (rawLen < perPage) break; // last page reached
-  }
+  };
+
+  // Primary query: commits the candidate AUTHORED that carry a co-author trailer (any
+  // agent trailer contains "noreply"); classified in code — anthropic-signed → scored.
+  await runQuery(`author:${github} Co-authored-by noreply`, MAX_PAGES);
+  // Recall fix: `author:` only matches commits whose git email is LINKED to the
+  // account, so candidates committing with an unlinked email score ~0. Also search by
+  // their git author emails (validated + capped). Owner filter still applies, so this
+  // only adds the candidate's OWN-repo commits the linked-email search missed.
+  const emails = (deps.emails ?? []).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)).slice(0, 3);
+  for (const email of emails) await runQuery(`author-email:${email} Co-authored-by noreply`, 1);
 
   // Per-agent footprints (non-cc), scored separately + clearly labelled downstream.
   const agents: Record<string, CcEvidence> = {};
