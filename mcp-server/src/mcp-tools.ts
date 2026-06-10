@@ -44,6 +44,10 @@ export interface CreateMcpToolsArgs {
   // Injectable for tests; default to the real GitHub gatherer / env email sender.
   evidenceFn?: (github: string) => Promise<CcEvidence>;
   sendImpl?: SendFn;
+  // Trusted insider-priority decision, injected server-side ONLY (the HTTP /api/apply
+  // path supplies an HMAC-backed verdict). Candidates run the stdio server themselves,
+  // so the priority flag must NEVER be read from client tool-args — see callArgs below.
+  priorityFn?: (callArgs: Record<string, unknown>) => boolean;
 }
 
 // Privacy filter: accept ONLY known count/flag fields from the agent's self-report.
@@ -70,6 +74,25 @@ function parseProfile(raw: unknown): AgentProfile | undefined {
   const ct = n(r.correctionTurns); if (ct !== undefined) p.correctionTurns = ct;
   const ad = n(r.activeDays); if (ad !== undefined) p.activeDays = ad;
   return Object.keys(p).length ? p : undefined;
+}
+
+// Self-reported local agent-CLI footprints (Codex/Kiro). Counts-only by construction:
+// keep only non-negative finite numbers, drop everything else. DISPLAY-ONLY — never
+// fed to scoreCc (no public anchor, trivially fabricable), only shown to the employer.
+function parseLocalAgents(raw: unknown): Record<string, Record<string, number>> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, Record<string, number>> = {};
+  for (const [agent, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!v || typeof v !== "object") continue;
+    const name = String(agent).replace(/[^\w-]/g, "").slice(0, 20);
+    if (!name) continue;
+    const counts: Record<string, number> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof val === "number" && Number.isFinite(val) && val >= 0) counts[k] = Math.floor(val);
+    }
+    if (Object.keys(counts).length) out[name] = counts;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export interface McpTools {
@@ -107,6 +130,11 @@ const TOOL_DESCRIPTORS: McpToolDescriptor[] = [
         profile: {
           type: "object",
           description: "Optional, agent self-reported, PRIVACY-SAFE counts/flags of your cc setup — NO file contents/names/paths/secrets. Keys: skills, mcpServers, selfAuthoredMcp, subagents, hooks, slashCommands, hasClaudeMd, correctionTurns, activeDays.",
+          additionalProperties: true,
+        },
+        localAgents: {
+          type: "object",
+          description: "Optional, self-reported COUNTS-ONLY footprint of OTHER agent CLIs you run (e.g. codex, kiro). Map of agent → {counterName: count}. DISPLAY-ONLY context for the employer — never scored (no public anchor). No paths/contents.",
           additionalProperties: true,
         },
       },
@@ -153,6 +181,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
           const jobId = typeof callArgs.job_id === "string" ? callArgs.job_id : null;
           const contact = typeof callArgs.contact === "string" ? callArgs.contact.trim() : "";
           const profile = parseProfile(callArgs.profile);
+          const localAgents = parseLocalAgents(callArgs.localAgents); // display-only, never scored
 
           const gather =
             args.evidenceFn ?? ((g: string) => gatherCcEvidence(g, args.token ? { token: args.token } : {}));
@@ -180,7 +209,14 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
             delivered: false,
             reason: contact ? "provide job_id to deliver" : "provide contact (so the employer can reach you) + job_id to deliver",
           };
-          if (contact && jobId) {
+          // A rate-limited / failed GitHub fetch returns 0 commits — indistinguishable
+          // from a real empty footprint. Don't email the employer a false "0/100 (none)";
+          // hold and tell the candidate to retry. (If real commits came back despite the
+          // partial fetch, deliver normally — the score is a valid lower bound.)
+          const evidenceIncomplete = merged.incomplete === true;
+          if (contact && jobId && evidenceIncomplete && merged.ccCommits === 0) {
+            delivery = { delivered: false, reason: "GitHub 取证未完成(可能被限流)— 稍后用同样命令重试即可" };
+          } else if (contact && jobId) {
             const jobsRes = await listJobs({ owner: args.owner, repo: args.repo, fetcher: args.fetcher });
             const job = jobsRes.jobs.find((j) => j.id === jobId);
             if (!job) {
@@ -202,8 +238,10 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                   score: cc.score,
                   band: cc.band,
                   evidenceUrls: cc.evidence.sampleUrls,
-                  priority: callArgs.priority === true,
+                  // Trusted server-side decision only; client args can't forge it.
+                  priority: args.priorityFn ? args.priorityFn(callArgs) : false,
                   ...(agentSignals.length ? { agentSignals } : {}),
+                  ...(localAgents ? { localAgents } : {}),
                   ...(recruiter ? { recruiter } : {}),
                 },
                 send,
@@ -221,6 +259,7 @@ export function createMcpTools(args: CreateMcpToolsArgs): McpTools {
                 breakdown: cc.breakdown,
                 evidence: cc.evidence,
                 delivery,
+                ...(evidenceIncomplete ? { evidence_incomplete: true } : {}),
                 note: cc.note,
               }),
             ],

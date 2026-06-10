@@ -28,24 +28,64 @@ const REQUEST_TIMEOUT_MS = 8000;
 const CLAUDE_TRAILER_RE = /co-authored-by:\s*claude[^\n>]*<noreply@anthropic\.com>/i;
 
 // Any co-author trailer, captured as (label, address). Used to note non-primary
-// collaborators on a candidate's commits. An automated collaborator signs with a
-// vendor `noreply@<domain>` address; a human's GitHub privacy email is
-// `…@users.noreply.github.com` (no `noreply@` segment) — so the `noreply@` test
-// below keeps the former and drops the latter. The anthropic address is the
-// primary fingerprint scored elsewhere, so it's excluded from this side-channel.
+// collaborators on a candidate's commits. The anthropic address is the primary
+// fingerprint scored elsewhere, so it's excluded from this side-channel.
 const COAUTHOR_RE = /co-authored-by:\s*([^<\n]+?)\s*<([^>\n]+)>/gi;
-// Distinct non-primary code-agent codenames on a commit. Vendor agents sign with a
-// `noreply@<domain>` address; a human's GitHub privacy email is
-// `…@users.noreply.github.com` (no `noreply@` segment) — the `noreply@` test keeps
-// the former, drops the latter. Anthropic is the primary fingerprint, scored
-// separately, so it's excluded here.
+
+// GitHub-native agents (Codex cloud, the Copilot coding agent) sign as a GitHub
+// App: `<name>[bot] <…+<name>[bot]@users.noreply.github.com>`. The literal
+// `noreply@` substring never appears in that address, so the plain `noreply@` test
+// (meant only to drop human privacy emails) would silently drop these real agents.
+const GH_BOT_ADDR_RE = /^\d+\+[\w.-]+\[bot\]@users\.noreply\.github\.com$/;
+// Reserved bot accounts that sign WITHOUT a `[bot]` segment in the address, pinned
+// by their immutable numeric GitHub id (a human privacy email is
+// `<theirId>+<theirLogin>@…`, never this exact pair) → codename.
+const BOT_ADDR_ALLOWLIST: Record<string, string> = {
+  "175728472+copilot@users.noreply.github.com": "Copilot",
+};
+// Non-coding GitHub Apps that also match the generic [bot] shape — never a
+// code-authoring agent, so they must not surface as an "agent" footprint.
+const NONCODE_BOT_RE = /^(dependabot|github-actions|renovate|greenkeeper|codecov|snyk-bot|mergify|pre-commit-ci|allcontributors|imgbot|netlify|vercel|sonarcloud|deepsource|restyled-io|stale|semantic-release-bot|web-flow)\b/;
+
+// Canonicalize a trailer label to ONE stable codename, so a single agent that
+// signs under several formats (Codex CLI `Codex` + Codex cloud
+// `chatgpt-codex-connector[bot]`) or mixed case collapses into one footprint
+// instead of splitting. Unknown agents are sanitized + length-capped so a forged
+// trailer can't smuggle control bytes / newlines into the employer email.
+function canonicalAgentName(label: string): string {
+  const l = label.toLowerCase();
+  if (/\bcodex\b/.test(l) || l.includes("chatgpt-codex-connector")) return "Codex";
+  if (/\bcopilot\b/.test(l)) return "Copilot";
+  if (/\bkiro\b/.test(l) || l.startsWith("kiro-")) return "Kiro";
+  if (/\bgemini\b/.test(l)) return "Gemini";
+  if (/\bcursor\b/.test(l)) return "Cursor";
+  if (/\bdevin\b/.test(l)) return "Devin";
+  if (/\baider\b/.test(l)) return "Aider";
+  const safe = label.replace(/[^\w .\/[\]-]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+  return safe || "agent";
+}
+
+// Is this co-author an automated code agent (vs a human collaborator)? Keep if the
+// address is a vendor `noreply@<domain>` (e.g. noreply@openai.com, noreply@kiro.dev),
+// a GitHub-App bot, or a pinned reserved bot — but never the anthropic address
+// (primary cc fingerprint, scored separately) and never a human privacy email.
+function isAgentAddress(addr: string): boolean {
+  if (addr.includes("anthropic.com")) return false;
+  if (addr.includes("noreply@")) return true;
+  if (GH_BOT_ADDR_RE.test(addr)) return true;
+  if (addr in BOT_ADDR_ALLOWLIST) return true;
+  return false;
+}
+
+// Distinct non-primary code-agent codenames on a commit (normalized + deduped).
 function agentCodenames(message: string): string[] {
   const names: string[] = [];
   for (const m of message.matchAll(COAUTHOR_RE)) {
     const label = (m[1] ?? "").trim();
     const addr = (m[2] ?? "").trim().toLowerCase();
-    if (!label || !addr.includes("noreply@") || addr.includes("anthropic.com")) continue;
-    names.push(label);
+    if (!label || !isAgentAddress(addr)) continue;
+    if (NONCODE_BOT_RE.test(label.toLowerCase())) continue;
+    names.push(BOT_ADDR_ALLOWLIST[addr] ?? canonicalAgentName(label));
   }
   return [...new Set(names)];
 }
@@ -127,13 +167,14 @@ export async function gatherCcEvidence(
   const MAX_PAGES = 2; // ≤100 commits → 1 request; only heavy users trigger a 2nd. Don't over-fetch.
   const kept: SearchItem[] = []; // anthropic-signed → scored as the cc footprint
   const agentItems: Record<string, SearchItem[]> = {}; // codename → that agent's commits
+  let incomplete = false; // a fetch failed/threw → the footprint below is a lower bound, not a confirmed 0
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const url = `https://api.github.com/search/commits?q=${encodeURIComponent(q)}&per_page=${perPage}&page=${page}&sort=author-date&order=desc`;
     let rawLen = 0;
     try {
       const resp = await fetchImpl(url, { headers, redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-      if (!resp.ok) break;
+      if (!resp.ok) { incomplete = true; break; } // 403/429/5xx — distinguish from a real empty result
       const json = (await resp.json()) as { items?: SearchItem[] };
       const all = Array.isArray(json.items) ? json.items : [];
       rawLen = all.length;
@@ -145,7 +186,8 @@ export async function gatherCcEvidence(
         for (const name of agentCodenames(message)) (agentItems[name] ??= []).push(it);
       }
     } catch {
-      break; // fail-open: keep whatever we already collected
+      incomplete = true; // network/timeout — fail-open but mark the result as partial
+      break;
     }
     if (rawLen < perPage) break; // last page reached
   }
@@ -154,8 +196,9 @@ export async function gatherCcEvidence(
   const agents: Record<string, CcEvidence> = {};
   for (const [name, items] of Object.entries(agentItems)) agents[name] = buildEvidence(items, now);
   const agentsOut = Object.keys(agents).length ? agents : undefined;
+  const flag = incomplete ? { incomplete: true } : {};
 
-  if (kept.length === 0) return agentsOut ? { ...empty, agents: agentsOut } : empty;
+  if (kept.length === 0) return { ...empty, ...flag, ...(agentsOut ? { agents: agentsOut } : {}) };
   const ev = buildEvidence(kept, now);
-  return agentsOut ? { ...ev, agents: agentsOut } : ev;
+  return { ...ev, ...flag, ...(agentsOut ? { agents: agentsOut } : {}) };
 }

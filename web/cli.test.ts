@@ -6,13 +6,13 @@
 //   • subagents/slashCommands/outputStyles never populated
 //   • guidance kept in a rules/ folder (not CLAUDE.md) read as "no guidance"
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Importing must NOT run the submit flow.
 process.env.HIREIC_NO_MAIN = "1";
-const { countSkills, countItems, hasGuidance, scanCorrections } = await import("./cli.mjs");
+const { countSkills, countItems, hasGuidance, scanCorrections, findRepos, countMcpServers, countCodex, countKiroCli } = await import("./cli.mjs");
 
 let root: string;
 const skill = (dir: string) => { mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, "SKILL.md"), "x"); };
@@ -124,6 +124,96 @@ describe("scanCorrections", () => {
 
   it("returns zeros on a missing projects dir without throwing", () => {
     expect(scanCorrections(join(tmpdir(), "nope-hireic"), NOW)).toEqual({ correctionTurns: 0, activeDays: 0 });
+  });
+});
+
+describe("findRepos", () => {
+  it("finds a git repo reached through a symlinked directory (the Dirent.isDirectory() bug class)", () => {
+    const base = mkdtempSync(join(tmpdir(), "hireic-repos-"));
+    mkdirSync(join(base, "real", "proj", ".git"), { recursive: true });
+    const scanRoot = join(base, "scan"); mkdirSync(scanRoot, { recursive: true });
+    symlinkSync(join(base, "real"), join(scanRoot, "link")); // symlinked dir-of-projects
+    const out: string[] = [];
+    findRepos(scanRoot, 0, out);
+    expect(out.length).toBe(1);
+    expect(realpathSync(out[0])).toBe(realpathSync(join(base, "real", "proj")));
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  it("terminates on a symlink cycle and does not duplicate the repo", () => {
+    const base = mkdtempSync(join(tmpdir(), "hireic-cycle-"));
+    mkdirSync(join(base, "a", "repo", ".git"), { recursive: true });
+    symlinkSync(base, join(base, "a", "loop")); // cycle back to root
+    const out: string[] = [];
+    expect(() => findRepos(base, 0, out)).not.toThrow();
+    const real = realpathSync(join(base, "a", "repo"));
+    expect(out.filter((d) => realpathSync(d) === real)).toHaveLength(1);
+    rmSync(base, { recursive: true, force: true });
+  });
+});
+
+describe("countMcpServers", () => {
+  it("unions global + project-scoped servers, deduped by name", () => {
+    const cj = {
+      mcpServers: { a: {}, b: {} },
+      projects: { "/x": { mcpServers: { b: {}, c: {} } }, "/y": { mcpServers: { d: {} } } },
+    };
+    expect(countMcpServers(cj)).toBe(4); // a, b, c, d
+  });
+  it("handles missing / null fields without throwing", () => {
+    expect(countMcpServers({})).toBe(0);
+    expect(countMcpServers(null)).toBe(0);
+  });
+});
+
+describe("countCodex (display-only Codex CLI footprint)", () => {
+  it("counts rollout sessions + distinct days from FILENAMES (no content read) + [projects.] entries", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hireic-codex-"));
+    writeFileSync(join(dir, "config.toml"), `model = "x"\n[projects."/a"]\ntrust_level = "trusted"\n[projects."/b"]\ntrust = "t"\n[mcp_servers.foo]\n`);
+    const s = join(dir, "sessions", "2026", "03", "16"); mkdirSync(s, { recursive: true });
+    writeFileSync(join(s, "rollout-2026-03-16T09-00-00-uuid.jsonl"), "{}");
+    writeFileSync(join(s, "rollout-2026-03-16T10-00-00-uuid.jsonl"), "{}"); // same day
+    const s2 = join(dir, "sessions", "2026", "04", "01"); mkdirSync(s2, { recursive: true });
+    writeFileSync(join(s2, "rollout-2026-04-01T08-00-00-uuid.jsonl"), "{}");
+    const c = countCodex(dir);
+    expect(c.sessions).toBe(3);
+    expect(c.activeDays).toBe(2); // 2026-03-16, 2026-04-01
+    expect(c.projects).toBe(2);
+    expect(c.tenureMonths).toBeGreaterThanOrEqual(0);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  it("returns null when ~/.codex is absent", () => {
+    expect(countCodex(join(tmpdir(), "nope-codex-xyz"))).toBeNull();
+  });
+});
+
+describe("countKiroCli (display-only Kiro CLI footprint; IDE-shared dir)", () => {
+  it("counts CLI sessions, steering docs, mcp servers; ignores transcripts/.lock/.example", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hireic-kiro-"));
+    const cli = join(dir, "sessions", "cli"); mkdirSync(cli, { recursive: true });
+    writeFileSync(join(cli, "a.json"), "{}");
+    writeFileSync(join(cli, "b.json"), "{}");
+    writeFileSync(join(cli, "a.jsonl"), "x");   // transcript, not a session
+    writeFileSync(join(cli, "a.lock"), "x");    // lock, not a session
+    const steering = join(dir, "steering"); mkdirSync(steering);
+    writeFileSync(join(steering, "product.md"), "x");
+    const settings = join(dir, "settings"); mkdirSync(settings);
+    writeFileSync(join(settings, "mcp.json"), JSON.stringify({ mcpServers: { x: {}, y: {} } }));
+    mkdirSync(join(dir, "agents"));
+    writeFileSync(join(dir, "agents", "agent_config.json.example"), "{}"); // install default — never counts
+    const k = countKiroCli(dir);
+    expect(k.cliSessions).toBe(2);
+    expect(k.steeringDocs).toBe(1);
+    expect(k.mcpServers).toBe(2);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  it("returns null for an IDE-only install (no sessions/cli) — install ≠ CLI usage", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hireic-kiro-ide-"));
+    writeFileSync(join(dir, "argv.json"), "{}");
+    mkdirSync(join(dir, "extensions"));
+    mkdirSync(join(dir, "steering")); // exists empty at install
+    expect(countKiroCli(dir)).toBeNull();
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 

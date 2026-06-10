@@ -26,6 +26,7 @@ export interface CcEvidence {
   sampleUrls: string[];
   density?: number; // internal sample-distribution normalization
   agents?: Record<string, CcEvidence>; // internal: per non-cc code-agent footprint (codename → its own evidence), scored + labelled for the employer only, stripped from candidate output
+  incomplete?: boolean; // a GitHub fetch failed/rate-limited mid-gather → this footprint is a lower bound, not a confirmed zero
 }
 
 // Agent self-reported, privacy-safe: COUNTS and FLAGS only — never contents,
@@ -193,6 +194,7 @@ export function mergeEvidence(evs: CcEvidence[]): CcEvidence {
     m.daysSinceLast = Math.min(m.daysSinceLast, e.daysSinceLast);
     m.spanDays = Math.max(m.spanDays, e.spanDays);
     if (e.density != null) density = Math.min(density, e.density);
+    if (e.incomplete) m.incomplete = true; // any account's fetch incomplete → merged is too
     for (const [k, v] of Object.entries(e.agents ?? {})) (agentBuckets[k] ??= []).push(v);
     urls.push(...e.sampleUrls);
   }

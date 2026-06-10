@@ -20,6 +20,10 @@ export interface Application {
   // Non-cc code agents this candidate drives (Codex, etc.), each scored from its OWN
   // commit footprint — reported SEPARATELY from the cc score, never folded into it.
   agentSignals?: { name: string; score: number; band: string; commits: number }[];
+  // Self-reported local agent-CLI footprints (Codex/Kiro): counts-only, NO public
+  // anchor, trivially fabricable → shown to the employer as UNVERIFIED context, never
+  // scored. Map of agent name → { counterName: count }.
+  localAgents?: Record<string, Record<string, number>>;
   // When set + band is "strong", the email appends a copy-pasteable outreach
   // draft (and a mailto: link if contact is an email) so the employer can reach
   // the candidate in one click instead of writing from scratch.
@@ -50,6 +54,21 @@ function bandPrefix(band: CcBand): string {
 function isEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
+
+// Candidate-controlled strings (contact, agent codenames, and any free-text field)
+// must never forge extra email lines or smuggle control/bidi bytes into a recruiter's
+// (possibly LLM-read) inbox. Strip C0/C1 controls, DEL, zero-width + bidi formatting,
+// collapse all whitespace (incl. newlines) to single spaces, trim, and length-cap.
+function sanitize(s: string, maxLen: number): string {
+  return s
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+// Cap on how many non-cc agent footprints are listed, so a candidate can't flood the
+// email by minting many distinct co-author codenames.
+const MAX_AGENT_LINES = 8;
 
 // Outreach draft for strong candidates. Hand-rolled (no LLM yet) — fact-only
 // fields, asks for the candidate's name (we don't have it), embeds the
@@ -89,39 +108,56 @@ function outreachBlock(app: Application): string[] {
 }
 
 export function renderApplicationEmail(app: Application): EmailMessage {
-  const job = app.jobId ? `${app.jobTitle} (${app.jobId})` : app.jobTitle;
-  const evidence = app.evidenceUrls.length
-    ? app.evidenceUrls.map((u) => `  - ${u}`).join("\n")
+  // Sanitize every candidate-controlled field ONCE, then render from the safe copy.
+  const contact = sanitize(app.contact, 120);
+  const jobTitle = sanitize(app.jobTitle, 120);
+  const safe: Application = { ...app, contact, jobTitle };
+  const job = safe.jobId ? `${jobTitle} (${safe.jobId})` : jobTitle;
+  const evidence = safe.evidenceUrls.length
+    ? safe.evidenceUrls.map((u) => `  - ${u}`).join("\n")
     : "  (无公开 commit 证据)";
   // Non-Claude-Code agents the candidate drives, each scored from its own commit
-  // footprint — reported SEPARATELY, explicitly NOT part of the cc 信号分.
-  const agentLines = (app.agentSignals ?? []).length
+  // footprint — reported SEPARATELY, explicitly NOT part of the cc 信号分. Codenames
+  // are candidate-controlled, so sanitize + cap the list.
+  const agents = (safe.agentSignals ?? []).slice(0, MAX_AGENT_LINES);
+  const agentLines = agents.length
     ? [
         ``,
         `其他 code agent 信号(非 cc,独立计分,供参考):`,
-        ...app.agentSignals!.map((a) => `  - ${a.name}: ${a.score}/100 (${a.band}) · ${a.commits} commits`),
+        ...agents.map((a) => `  - ${sanitize(a.name, 40)}: ${a.score}/100 (${a.band}) · ${a.commits} commits`),
+      ]
+    : [];
+  // Self-reported local agent environments (Codex/Kiro) — UNVERIFIED, never scored.
+  const localAgentEntries = Object.entries(safe.localAgents ?? {}).slice(0, MAX_AGENT_LINES);
+  const localAgentLines = localAgentEntries.length
+    ? [
+        ``,
+        `候选人自报本地 agent 环境(未验证,仅供参考,不计入任何分):`,
+        ...localAgentEntries.map(([name, counts]) =>
+          `  - ${sanitize(name, 20)}: ${Object.entries(counts).map(([k, v]) => `${sanitize(k, 24)}=${v}`).join(", ")}`),
       ]
     : [];
   const text = [
     `一位候选人通过 hireIC 投递了你的职位。直接联系 ta 即可。`,
-    ...(app.priority ? [`内部信号 ✓`] : []),
+    ...(safe.priority ? [`内部信号 ✓`] : []),
     ``,
-    `GitHub: https://github.com/${app.github}`,
-    `联系方式: ${app.contact}`,
+    `GitHub: https://github.com/${safe.github}`,
+    `联系方式: ${contact}`,
     `职位: ${job}`,
     ``,
-    `cc 信号分: ${app.score}/100 (${app.band})`,
+    `cc 信号分: ${safe.score}/100 (${safe.band})`,
     `证据 (真实 cc commit):`,
     evidence,
     ...agentLines,
-    ...outreachBlock(app),
+    ...localAgentLines,
+    ...outreachBlock(safe),
     ``,
     `cc 信号是信号不是认证 (防君子不防小人) — 请点开 evidence 链接人工核实。`,
     `— hireIC`,
   ].join("\n");
   return {
-    to: app.employerContact,
-    subject: `${bandPrefix(app.band)} ${app.github} 申请 ${app.jobTitle} · cc ${app.score}/100 (${app.band})`,
+    to: safe.employerContact,
+    subject: `${bandPrefix(safe.band)} ${safe.github} 申请 ${jobTitle} · cc ${safe.score}/100 (${safe.band})`,
     text,
   };
 }

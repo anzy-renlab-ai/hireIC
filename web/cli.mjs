@@ -85,6 +85,98 @@ export function hasGuidance(claudeDir) {
   return false;
 }
 
+// Count distinct MCP servers across BOTH the global block and per-project blocks of
+// ~/.claude.json. Claude Code stores project-scoped servers under
+// projects[<path>].mcpServers — counting only the top-level key scored a candidate
+// who configures MCP per project (arguably the more sophisticated pattern) at 0.
+export function countMcpServers(claudeJson) {
+  const names = new Set(Object.keys(claudeJson?.mcpServers ?? {}));
+  for (const p of Object.values(claudeJson?.projects ?? {})) {
+    for (const k of Object.keys(p?.mcpServers ?? {})) names.add(k);
+  }
+  return names.size;
+}
+
+// Local cc-footprint repo discovery. Walk dev roots for git repos. Two correctness
+// rules the naive walk missed:
+//   • follow SYMLINKED project dirs — Dirent.isDirectory() is false on a symlink, so
+//     a symlinked project root was silently skipped (same bug class as the skills scan).
+//   • bound by a visited-realpath set so a symlink cycle/diamond terminates and a repo
+//     reached two ways isn't scanned twice.
+const SCAN_MAX_DEPTH = 4;
+const SCAN_SKIP = new Set(["node_modules", "Library", ".cache", ".npm", "vendor", "dist", "build", "target", ".Trash"]);
+export function findRepos(root, depth, out, visited = new Set()) {
+  if (depth > SCAN_MAX_DEPTH) return;
+  let real;
+  try { real = realpathSync(root); } catch { return; } // missing / unreadable → skip
+  if (visited.has(real)) return; // cycle or already-seen path
+  visited.add(real);
+  let entries;
+  try { entries = readdirSync(root, { withFileTypes: true }); } catch { return; }
+  if (entries.some((e) => e.name === ".git")) { out.push(root); return; } // repo boundary — don't descend in
+  for (const e of entries) {
+    if (e.name.startsWith(".") || SCAN_SKIP.has(e.name)) continue;
+    let isDir = e.isDirectory();
+    if (e.isSymbolicLink()) { try { isDir = statSync(join(root, e.name)).isDirectory(); } catch { isDir = false; } }
+    if (!isDir) continue;
+    findRepos(join(root, e.name), depth + 1, out, visited);
+  }
+}
+
+function monthsSince(ymd) {
+  const [y, m] = ymd.split("-").map(Number);
+  const n = new Date();
+  return Math.max(0, n.getFullYear() * 12 + n.getMonth() + 1 - (y * 12 + m));
+}
+
+// ── non-cc agent environments (Codex, Kiro CLI) — DISPLAY-ONLY ──────────────────
+// Counts-only introspection of OTHER code-agent CLIs the candidate runs. Unlike cc
+// (anchored by a public GitHub trailer), these have NO server-verifiable anchor and
+// the files are trivially fabricable, so the server treats them as DISPLAY-ONLY
+// context for the employer — never folded into the cc score. Privacy unchanged: only
+// counts leave (session/day/project counts), never any path, prompt, or file content.
+
+// OpenAI Codex CLI: ~/.codex/{config.toml, sessions/**/rollout-<date>T….jsonl}. The
+// session date lives in the FILENAME, so day/tenure counts read zero file contents.
+export function countCodex(codexDir) {
+  if (!existsSync(join(codexDir, "config.toml")) && !existsSync(join(codexDir, "sessions"))) return null;
+  let projects = 0;
+  try { projects = (readFileSync(join(codexDir, "config.toml"), "utf8").match(/^\[projects\./gm) || []).length; }
+  catch { /* no config.toml */ }
+  const days = new Set();
+  let sessions = 0, earliest = null;
+  const walk = (dir, depth) => {
+    if (depth > 4) return;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith(".")) continue;
+      if (e.isDirectory()) { walk(join(dir, e.name), depth + 1); continue; }
+      const m = /^rollout-(\d{4}-\d{2}-\d{2})T.*\.jsonl$/.exec(e.name);
+      if (m) { sessions++; days.add(m[1]); if (!earliest || m[1] < earliest) earliest = m[1]; }
+    }
+  };
+  walk(join(codexDir, "sessions"), 0);
+  if (!sessions && !projects) return null;
+  return { sessions, activeDays: days.size, projects, tenureMonths: earliest ? monthsSince(earliest) : 0 };
+}
+
+// AWS Kiro CLI: ~/.kiro is SHARED with the Kiro IDE. Only sessions/cli/*.json +
+// settings/cli.json indicate CLI agent USAGE; argv.json/extensions are IDE-install
+// only and must NOT count. steering/ and skills/ exist EMPTY at install, so counting
+// their contents (0 when empty) naturally avoids crediting a fresh install as signal.
+export function countKiroCli(kiroDir) {
+  let cliSessions = 0;
+  try { for (const f of readdirSync(join(kiroDir, "sessions", "cli"))) if (f.endsWith(".json") && !f.endsWith(".example")) cliSessions++; }
+  catch { /* no CLI sessions */ }
+  if (!cliSessions) return null; // IDE install without CLI usage → no signal
+  let steeringDocs = 0;
+  try { steeringDocs = readdirSync(join(kiroDir, "steering")).filter((f) => f.endsWith(".md")).length; } catch { /* none */ }
+  let mcpServers = 0;
+  try { mcpServers = Object.keys(readJson(join(kiroDir, "settings", "mcp.json")).mcpServers ?? {}).length; } catch { /* none */ }
+  return { cliSessions, steeringDocs, mcpServers };
+}
+
 // Operator signal: how often the candidate CATCHES cc's mistakes — pushes back,
 // corrects, reverts — rather than rubber-stamping. Read LOCALLY from their own cc
 // transcripts (~/.claude/projects/*/*.jsonl); ONLY two counts leave the machine
@@ -181,7 +273,7 @@ async function main() {
   // BEFORE — tell the candidate exactly what's about to happen + the privacy promise.
   console.log(`
 hireIC 投递 · ${jobId}
-即将:① 认出你的 GitHub  ② 在本地数一数你的 cc 使用痕迹 + 对话里纠正 cc 的次数(只在你机器上数,只发数量)  ③ 提交评估
+即将:① 认出你的 GitHub  ② 在本地数一数你的 cc 使用痕迹 + 对话里纠正 cc 的次数,以及你用 Codex/Kiro 的痕迹(只在你机器上数,只发数量)  ③ 提交评估
 🔒 隐私:只发送计数 + 你的公开 GitHub 用户名 + 联系方式。代码与对话内容只在本地参与计数,绝不发送内容、文件名、路径或密钥,不上传任何文件。脚本开源可审:https://hire.renlab.ai/cli.mjs
 `);
 
@@ -233,29 +325,33 @@ hireIC 投递 · ${jobId}
   //     is overridable via HIREIC_SCAN_ROOTS, so a real footprint isn't judged zero.
   //   • Commits are de-duped by SHA (and repos by their shared git dir), so multiple
   //     git WORKTREES of one repo — which share history — don't inflate the count.
+  const progress = (m) => { try { process.stderr.write(m + "\n"); } catch { /* ignore */ } };
   const scanRoots = process.env.HIREIC_SCAN_ROOTS
     ? process.env.HIREIC_SCAN_ROOTS.split(":").filter(Boolean)
-    : ["work", "projects", "code", "dev", "src", "repos", "git", "go/src", "Documents", "Developer"].map((d) => join(home, d));
-  const SCAN_MAX_DEPTH = 4;
-  const SCAN_SKIP = new Set(["node_modules", "Library", ".cache", ".npm", "vendor", "dist", "build", "target", ".Trash"]);
-  function findRepos(root, depth, out) {
-    if (depth > SCAN_MAX_DEPTH || !existsSync(root)) return;
-    let entries;
-    try { entries = readdirSync(root, { withFileTypes: true }); } catch { return; }
-    if (entries.some((e) => e.name === ".git")) { out.push(root); return; } // repo boundary — don't descend in
-    for (const e of entries) {
-      if (!e.isDirectory() || e.name.startsWith(".") || SCAN_SKIP.has(e.name)) continue;
-      findRepos(join(root, e.name), depth + 1, out);
-    }
-  }
+    : ["work", "projects", "code", "dev", "src", "repos", "git", "go/src", "Documents", "Developer", "Desktop", "workspace"].map((d) => join(home, d));
+  progress("② 扫描本地仓库…");
   const repoDirs = [];
   for (const r of scanRoots) findRepos(r, 0, repoDirs);
+  progress(`  找到 ${repoDirs.length} 个仓库,统计 cc 提交…`);
 
+  // Only credit the CANDIDATE's own commits. Without an --author filter, `git log
+  // --all` also counts trailer commits authored by OTHERS — upstream history of cloned
+  // OSS repos, teammates in shared repos — inflating the footprint (one old cloned
+  // commit could even set tenure decades back). Identify the candidate per-repo
+  // (per-repo user.email, falling back to the global one), escaped for git's -E regex.
+  const globalEmail = tryExec("git", ["config", "--global", "user.email"]);
+  const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const DEADLINE = Date.now() + 60_000; // whole local scan is a lower bound — never hang a candidate's terminal
   const months = new Set();
   const ccShas = new Set();   // de-dupe commits across worktrees / roots
   const ccRepos = new Set();  // de-dupe repos by their shared git common dir
+  let scanned = 0;
   for (const dir of repoDirs) {
-    const out = tryExec("git", ["-C", dir, "log", "--all", "-i", "-E", "--grep=co-authored-by:.*claude.*noreply@anthropic\\.com", "--pretty=%H|%ad", "--date=format:%Y-%m"]);
+    if (Date.now() > DEADLINE) { progress("  ⏱ 仓库扫描超时,用已得计数(下界)"); break; }
+    if (++scanned % 25 === 0) progress(`  …已扫描 ${scanned}/${repoDirs.length}`);
+    const email = tryExec("git", ["-C", dir, "config", "user.email"]) || globalEmail;
+    const authorArgs = email ? [`--author=${reEsc(email)}`] : [];
+    const out = tryExec("git", ["-C", dir, "log", "--all", "-i", "-E", ...authorArgs, "--grep=co-authored-by:.*claude.*noreply@anthropic\\.com", "--pretty=%H|%ad", "--date=format:%Y-%m"]);
     if (!out) continue;
     // Repo identity = its shared git dir (worktrees of one repo share it), resolved to
     // an absolute, symlink-canonical path in Node — NOT via `--path-format=absolute`,
@@ -277,10 +373,11 @@ hireIC 投递 · ${jobId}
   const sorted = [...months].sort();
   const tenure = sorted.length ? (() => { const [y, m] = sorted[0].split("-").map(Number); const n = new Date(); return Math.max(0, n.getFullYear() * 12 + n.getMonth() + 1 - (y * 12 + m)); })() : 0;
   // Operator signal — counted locally; only the two counts leave (see scanCorrections).
+  progress("  读取本地 cc 对话(只数次数)…");
   const { correctionTurns, activeDays } = scanCorrections(join(claude, "projects"));
   const profile = {
     skills: countSkills(claude),
-    mcpServers: Object.keys(readJson(join(home, ".claude.json")).mcpServers ?? {}).length,
+    mcpServers: countMcpServers(readJson(join(home, ".claude.json"))),
     subagents: countItems(join(claude, "agents")),
     hooks: Object.keys(settings.hooks ?? {}).length,
     slashCommands: countItems(join(claude, "commands")),
@@ -291,13 +388,20 @@ hireIC 投递 · ${jobId}
     correctionTurns, activeDays,
   };
 
+  // Other agent CLIs the candidate runs (Codex/Kiro) — counts-only, DISPLAY-ONLY on the
+  // server (never scored), surfaced to the employer as context. Absent agents → omitted.
+  const localAgents = {};
+  const codex = countCodex(join(home, ".codex")); if (codex) localAgents.codex = codex;
+  const kiro = countKiroCli(join(home, ".kiro")); if (kiro) localAgents.kiro = kiro;
+
   // 4) submit — show the candidate the EXACT payload first, so they can see for
   // themselves that only counts + github + contact leave the machine.
-  const payload = { github, contact, job_id: jobId, profile };
+  const payload = { github, contact, job_id: jobId, profile, ...(Object.keys(localAgents).length ? { localAgents } : {}) };
   console.log("本次发送的全部数据(就这些,全是计数/标志,无代码内容):");
   console.log(JSON.stringify(payload, null, 2).split("\n").map((l) => "  " + l).join("\n"));
   console.log("");
 
+  process.stderr.write("③ 提交…\n");
   const resp = await fetch(`${API}/api/apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

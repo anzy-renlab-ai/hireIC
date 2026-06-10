@@ -166,4 +166,62 @@ describe("apply tool — cc-signal scoring + delivery to the employer", () => {
     expect((await call("apply", { github: "not a name!" })).isError).toBe(true);
     expect((await call("apply", {})).isError).toBe(true);
   });
+
+  // C14: a rate-limited / failed GitHub fetch returns 0 commits; emailing the employer
+  // a "0/100 (none)" for a possibly-strong candidate is worse than holding. Hold + tell
+  // the candidate to retry ONLY when the fetch was incomplete AND found nothing.
+  it("holds delivery when evidence fetch was incomplete and found nothing", async () => {
+    let sent: unknown = null;
+    const incompleteEv = async () => ({ ccCommits: 0, ccRepos: 0, activeMonths: 0, daysSinceLast: Infinity, spanDays: 0, sampleUrls: [], incomplete: true });
+    const { call } = createMcpTools(makeArgs({ evidenceFn: incompleteEv, sendImpl: async (m) => { sent = m; return { delivered: true }; } }));
+    const res = await call("apply", { github: "alicelu", job_id: "acme", contact: "alice@example.com" });
+    const p = JSON.parse(res.content[0]!.text);
+    expect(p.delivery.delivered).toBe(false);
+    expect(p.delivery.reason).toMatch(/重试|限流|未完成/);
+    expect(p.evidence_incomplete).toBe(true);
+    expect(sent).toBeNull();
+  });
+
+  it("carries self-reported local agent envs to the employer email WITHOUT affecting the cc score", async () => {
+    let sent: { text: string } | null = null;
+    const { call } = createMcpTools(makeArgs({ evidenceFn, sendImpl: async (m) => { sent = m; return { delivered: true }; } }));
+    const res = await call("apply", { github: "alicelu", job_id: "acme", contact: "a@b.com", localAgents: { codex: { sessions: 115, projects: 10, junk: "x", neg: -5 } } });
+    const p = JSON.parse(res.content[0]!.text);
+    const baseline = JSON.parse((await createMcpTools(makeArgs({ evidenceFn })).call("apply", { github: "alicelu" })).content[0]!.text);
+    expect(p.cc_score).toBe(baseline.cc_score); // local agents never move the cc score
+    expect(sent!.text).toContain("sessions=115");
+    expect(sent!.text).not.toContain("junk"); // non-numeric dropped
+    expect(sent!.text).not.toContain("-5");   // negative dropped
+  });
+
+  it("still delivers when the fetch was incomplete but real commits came back", async () => {
+    let sent: unknown = null;
+    const partialEv = async () => ({ ...heavyEvidence, incomplete: true });
+    const { call } = createMcpTools(makeArgs({ evidenceFn: partialEv, sendImpl: async (m) => { sent = m; return { delivered: true }; } }));
+    const res = await call("apply", { github: "alicelu", job_id: "acme", contact: "alice@example.com" });
+    const p = JSON.parse(res.content[0]!.text);
+    expect(p.delivery.delivered).toBe(true);
+    expect(sent).not.toBeNull();
+  });
+
+  // SECURITY: candidates run the stdio MCP server themselves, so any value in the
+  // client tool-args is attacker-controlled. The insider 内部信号 ✓ flag must come
+  // ONLY from a server-injected trusted channel, never from callArgs.priority.
+  it("ignores a client-supplied priority flag (spoof prevention)", async () => {
+    let sent: { text: string } | null = null;
+    const { call } = createMcpTools(makeArgs({ evidenceFn, sendImpl: async (m) => { sent = m; return { delivered: true }; } }));
+    await call("apply", { github: "alicelu", job_id: "acme", contact: "alice@example.com", priority: true });
+    expect(sent!.text).not.toContain("内部信号");
+  });
+
+  it("honors a server-injected trusted priorityFn", async () => {
+    let sent: { text: string } | null = null;
+    const { call } = createMcpTools(makeArgs({
+      evidenceFn,
+      sendImpl: async (m) => { sent = m; return { delivered: true }; },
+      priorityFn: () => true,
+    }));
+    await call("apply", { github: "alicelu", job_id: "acme", contact: "alice@example.com" });
+    expect(sent!.text).toContain("内部信号 ✓");
+  });
 });

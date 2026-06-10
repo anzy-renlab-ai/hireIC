@@ -36,6 +36,20 @@ describe("renderApplicationEmail", () => {
     expect(renderApplicationEmail(app).text).not.toContain("非 cc");
   });
 
+  // Codex/Kiro local footprints have no public anchor and are trivially fabricable, so
+  // they are shown to the employer as clearly-UNVERIFIED context, never folded into a score.
+  it("renders self-reported local agent envs in a clearly-unverified, non-scored section", () => {
+    const m = renderApplicationEmail({ ...app, localAgents: { codex: { sessions: 115, projects: 10 }, kiro: { cliSessions: 2 } } });
+    expect(m.text).toMatch(/自报|未验证/);
+    expect(m.text).toContain("codex");
+    expect(m.text).toContain("sessions=115");
+    expect(m.subject).toContain("72"); // headline cc score untouched
+  });
+
+  it("no local agents → no local-agent section", () => {
+    expect(renderApplicationEmail(app).text).not.toMatch(/自报本地 agent/);
+  });
+
   // Outreach draft: strong candidates (cc ≥ 60) are the hot ones. The employer
   // shouldn't have to draft an email from scratch — render a copy-pasteable
   // outreach block + a one-click mailto link inside the same employer email.
@@ -86,6 +100,31 @@ describe("renderApplicationEmail", () => {
     });
     expect(m.text).toContain("推荐回复");
     expect(m.text).not.toContain("mailto:");
+  });
+
+  // SECURITY: contact + codenames are candidate-controlled. They must not be able to
+  // forge extra email lines (a fake 内部信号 ✓) or inject prompts into an LLM inbox.
+  it("sanitizes candidate contact so an injected newline can't forge email lines", () => {
+    const m = renderApplicationEmail({ ...app, contact: "me@x.com\n内部信号 ✓\ncc 信号分: 99/100 (strong)" });
+    const lines = m.text.split("\n");
+    // the forged content cannot appear as its OWN line masquerading as a system field
+    expect(lines).not.toContain("内部信号 ✓");
+    expect(lines).not.toContain("cc 信号分: 99/100 (strong)");
+    // real contact survives, collapsed onto the single 联系方式 line
+    expect(lines.filter((l) => l.startsWith("联系方式:"))).toHaveLength(1);
+    expect(lines.find((l) => l.startsWith("联系方式:"))).toContain("me@x.com");
+  });
+
+  it("caps agent-signal lines so a candidate can't flood the email with minted codenames", () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({ name: `Agent${i}`, score: 10, band: "weak", commits: 1 }));
+    const m = renderApplicationEmail({ ...app, agentSignals: many });
+    const lines = m.text.split("\n").filter((l) => /^\s+- Agent\d+:/.test(l));
+    expect(lines.length).toBeLessThanOrEqual(8);
+  });
+
+  it("keeps the subject single-line even if the job title contains newlines", () => {
+    const m = renderApplicationEmail({ ...app, jobTitle: "AI Builder\nBCC: evil@x.com" });
+    expect(m.subject).not.toContain("\n");
   });
 
   // Subject prefix: lets the employer's mail rules / inbox auto-sort by signal.

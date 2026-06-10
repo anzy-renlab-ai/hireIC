@@ -67,6 +67,21 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
     expect(ev.ccCommits).toBe(0);
   });
 
+  // A rate-limit / network failure must be distinguishable from a real empty footprint,
+  // so the apply path never emails the employer a false "0/100 (none)".
+  it("flags evidence as incomplete when a page fetch fails or throws", async () => {
+    const ev403 = await gatherCcEvidence("x", { fetchImpl: stubFetch({ status: 403 }) });
+    expect(ev403.ccCommits).toBe(0);
+    expect(ev403.incomplete).toBe(true);
+    const evThrow = await gatherCcEvidence("x", { fetchImpl: stubFetch({ throws: true }) });
+    expect(evThrow.incomplete).toBe(true);
+  });
+
+  it("a complete fetch is not flagged incomplete", async () => {
+    const ev = await gatherCcEvidence("alicelu", { fetchImpl: stubFetch({ body }), now: NOW });
+    expect(ev.incomplete).toBeFalsy();
+  });
+
   it("HIDDEN anti-spoof: drops own-repo trailer commits backdated before cc existed, or future-dated", async () => {
     const fakes = { items: [
       // real trailer, own repo, but dated 2024 (before Claude Code) → fabricated, dropped
@@ -113,5 +128,69 @@ describe("gatherCcEvidence — verified public cc footprint", () => {
     const ev = await gatherCcEvidence("cara", { fetchImpl: stubFetch({ body: codexOnly }), now: NOW });
     expect(ev.ccCommits).toBe(0); // no cc footprint → cc score 0
     expect(ev.agents?.Codex?.ccCommits).toBe(1); // but Codex footprint captured + scorable for the employer
+  });
+
+  // GitHub-native agents (Codex cloud, Copilot coding agent) sign as a GitHub App:
+  // `<name>[bot] <digits+name[bot]@users.noreply.github.com>`. The literal "noreply@"
+  // never appears, so the old addr.includes("noreply@") filter (meant only to drop
+  // human privacy emails) silently dropped every bot. They are fetched, then scored.
+  it("captures GitHub-App bot agents (Codex cloud, Copilot); still drops human privacy emails", async () => {
+    const bots = { items: [
+      { html_url: "b1", author: { login: "dan" }, repository: { full_name: "dan/app" }, commit: { message: "feat\n\nCo-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>", author: { date: "2026-03-01T00:00:00Z" } } },
+      { html_url: "b2", author: { login: "dan" }, repository: { full_name: "dan/app" }, commit: { message: "fix\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>", author: { date: "2026-03-02T00:00:00Z" } } },
+      { html_url: "b3", author: { login: "dan" }, repository: { full_name: "dan/app" }, commit: { message: "wip\n\nCo-authored-by: pat <1234+pat@users.noreply.github.com>", author: { date: "2026-03-03T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("dan", { fetchImpl: stubFetch({ body: bots }), now: NOW });
+    expect(ev.ccCommits).toBe(0); // none are cc
+    expect(new Set(Object.keys(ev.agents ?? {}))).toEqual(new Set(["Codex", "Copilot"]));
+    expect(ev.agents?.Codex?.ccCommits).toBe(1);
+    expect(ev.agents?.Copilot?.ccCommits).toBe(1);
+  });
+
+  // One agent, two trailer formats (Codex CLI `Codex <noreply@openai.com>` + Codex
+  // cloud `chatgpt-codex-connector[bot]`) must collapse to ONE footprint, not split.
+  it("normalizes one agent's trailer variants into a single codename", async () => {
+    const dual = { items: [
+      { html_url: "d1", author: { login: "ed" }, repository: { full_name: "ed/svc" }, commit: { message: "a\n\nCo-authored-by: Codex <noreply@openai.com>", author: { date: "2026-03-01T00:00:00Z" } } },
+      { html_url: "d2", author: { login: "ed" }, repository: { full_name: "ed/svc" }, commit: { message: "b\n\nCo-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>", author: { date: "2026-03-05T00:00:00Z" } } },
+      // case variant of the same agent must not spawn a second footprint
+      { html_url: "d3", author: { login: "ed" }, repository: { full_name: "ed/svc" }, commit: { message: "c\n\nCo-authored-by: codex <noreply@openai.com>", author: { date: "2026-03-06T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("ed", { fetchImpl: stubFetch({ body: dual }), now: NOW });
+    expect(Object.keys(ev.agents ?? {})).toEqual(["Codex"]);
+    expect(ev.agents?.Codex?.ccCommits).toBe(3); // all variants merged into one footprint
+  });
+
+  it("drops non-coding bots (dependabot, github-actions) from agent codenames", async () => {
+    const noise = { items: [
+      { html_url: "n1", author: { login: "fi" }, repository: { full_name: "fi/app" }, commit: { message: "bump\n\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>", author: { date: "2026-03-01T00:00:00Z" } } },
+      { html_url: "n2", author: { login: "fi" }, repository: { full_name: "fi/app" }, commit: { message: "ci\n\nCo-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>", author: { date: "2026-03-02T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("fi", { fetchImpl: stubFetch({ body: noise }), now: NOW });
+    expect(ev.agents).toBeUndefined();
+  });
+
+  it("normalizes Kiro vendor-noreply trailer variants into one 'Kiro' codename", async () => {
+    const kiro = { items: [
+      { html_url: "k1", author: { login: "gu" }, repository: { full_name: "gu/app" }, commit: { message: "a\n\nCo-authored-by: Kiro <noreply@kiro.dev>", author: { date: "2026-03-01T00:00:00Z" } } },
+      { html_url: "k2", author: { login: "gu" }, repository: { full_name: "gu/app" }, commit: { message: "b\n\nCo-authored-by: Kiro <noreply@kiro.ai>", author: { date: "2026-03-02T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("gu", { fetchImpl: stubFetch({ body: kiro }), now: NOW });
+    expect(Object.keys(ev.agents ?? {})).toEqual(["Kiro"]);
+    expect(ev.agents?.Kiro?.ccCommits).toBe(2);
+  });
+
+  // C15 (codename injection): an unknown agent label with control / zero-width chars
+  // or absurd length must be sanitized + length-capped at the source, so a forged
+  // trailer can't smuggle control bytes or overflow the employer-email line.
+  it("sanitizes and caps an unknown agent codename", async () => {
+    const longLabel = "EvilAgent​\t" + "x".repeat(60);
+    const inj = { items: [
+      { html_url: "i1", author: { login: "ha" }, repository: { full_name: "ha/app" }, commit: { message: `x\n\nCo-authored-by: ${longLabel} <noreply@evil.dev>`, author: { date: "2026-03-01T00:00:00Z" } } },
+    ] };
+    const ev = await gatherCcEvidence("ha", { fetchImpl: stubFetch({ body: inj }), now: NOW });
+    const name = Object.keys(ev.agents ?? {})[0] ?? "";
+    expect(name.length).toBeLessThanOrEqual(40);
+    expect(/[ -​]/.test(name)).toBe(false);
   });
 });

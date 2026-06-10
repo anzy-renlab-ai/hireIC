@@ -45,6 +45,10 @@ function tools() {
     fetcher,
     ...(token ? { token } : {}),
     sendImpl: emailSender(process.env),
+    // The ONLY place insider-priority is granted: an HMAC validator over the request,
+    // keyed by a server-only seed. The stdio server (run by candidates) never injects
+    // this, so callArgs can't forge the flag.
+    priorityFn: (callArgs) => conditional(callArgs).warm,
   });
 }
 
@@ -61,8 +65,9 @@ export default async function handler(req: Req, res: Res): Promise<void> {
     return;
   }
 
-  const { warm } = conditional(body); // serve warm path on validator match
-  const result = await tools().call("apply", { ...body, priority: warm });
+  // priority is decided inside the tool via the injected priorityFn (HMAC over the
+  // request) — never passed through client-visible args, so it can't be spoofed.
+  const result = await tools().call("apply", body);
   if (result.isError) {
     res.status(400).json({ error: result.content[0]?.text ?? "apply failed" });
     return;
