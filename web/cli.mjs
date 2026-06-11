@@ -421,7 +421,7 @@ hireIC 投递 · ${jobId}
   if (!resp.ok) { console.error(`apply failed: HTTP ${resp.status}`); process.exit(1); }
   const r = await resp.json();
   console.log(`✓ 已投递 ${jobId} as @${github}`);
-  console.log(`  cc 信号分: ${r.cc_score}/100 (${r.band})`);
+  console.log(`  cc 信号分: ${r.cc_score}/100`);
   if (r.hint) console.log(`  ⓘ ${r.hint}`);
   console.log(`  招聘方${r.delivery?.delivered ? "已收到你的申请,会直接联系你" : (r.delivery?.reason || "投递已记录")}.`);
   console.log(`🔒 完成。上面那段 JSON 就是离开你机器的全部内容 —— 没有代码、没有文件、没有隐私。`);

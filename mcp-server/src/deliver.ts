@@ -84,7 +84,7 @@ function outreachBlock(app: Application): string[] {
     `我是 ${app.recruiter.name},看到你通过 hireIC 投了 ${app.jobTitle}。`,
     `投递只带了 GitHub (${app.github}),方便回信时告诉我怎么称呼你吗?`,
     ``,
-    `你的 cc 信号是 ${app.score}/100 (${app.band})——公开 commit 里 cc 真的在 daily driver 位上跑,这是我们的硬门槛。`,
+    `你的 cc 信号是 ${app.score}/100——公开 commit 里 cc 真的在 daily driver 位上跑,这是我们的硬门槛。`,
     ``,
     `想约个 30 分钟聊聊。方便就直接回邮件,或加微信/电话 ${app.recruiter.contact}。`,
     ``,
@@ -124,7 +124,7 @@ export function renderApplicationEmail(app: Application): EmailMessage {
     ? [
         ``,
         `其他 code agent 信号(非 cc,独立计分,供参考):`,
-        ...agents.map((a) => `  - ${sanitize(a.name, 40)}: ${a.score}/100 (${a.band}) · ${a.commits} commits`),
+        ...agents.map((a) => `  - ${sanitize(a.name, 40)}: ${a.score}/100 · ${a.commits} commits`),
       ]
     : [];
   // Self-reported local agent environments (Codex/Kiro) — UNVERIFIED, never scored.
@@ -145,7 +145,7 @@ export function renderApplicationEmail(app: Application): EmailMessage {
     `联系方式: ${contact}`,
     `职位: ${job}`,
     ``,
-    `cc 信号分: ${safe.score}/100 (${safe.band})`,
+    `cc 信号分: ${safe.score}/100`,
     `证据 (真实 cc commit):`,
     evidence,
     ...agentLines,
@@ -157,7 +157,7 @@ export function renderApplicationEmail(app: Application): EmailMessage {
   ].join("\n");
   return {
     to: safe.employerContact,
-    subject: `${bandPrefix(safe.band)} ${safe.github} 申请 ${jobTitle} · cc ${safe.score}/100 (${safe.band})`,
+    subject: `${bandPrefix(safe.band)} ${safe.github} 申请 ${jobTitle} · cc ${safe.score}/100`,
     text,
   };
 }

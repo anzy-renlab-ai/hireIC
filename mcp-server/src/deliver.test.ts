@@ -27,9 +27,21 @@ describe("renderApplicationEmail", () => {
   it("renders non-cc agent signals in a SEPARATE section, explicitly not part of the cc score", () => {
     const m = renderApplicationEmail({ ...app, agentSignals: [{ name: "Codex", score: 41, band: "moderate", commits: 23 }] });
     expect(m.text).toContain("非 cc"); // clearly labelled as not the cc score
-    expect(m.text).toContain("Codex: 41/100 (moderate) · 23 commits");
+    expect(m.text).toContain("Codex: 41/100 · 23 commits");
     // the headline cc score stays the candidate's cc number, untouched by codex
     expect(m.subject).toContain("72");
+  });
+
+  // Tone: never show band WORDS (strong/moderate/weak/none) in candidate- or
+  // employer-facing prose — only the number. The [hireIC ✓/~/?] subject symbol still
+  // encodes the band for inbox sorting, and the JSON `band` field stays for machines.
+  it("shows the score number but no band word in subject or body", () => {
+    for (const [band, score] of [["strong", 72], ["moderate", 45], ["weak", 12], ["none", 0]] as const) {
+      const m = renderApplicationEmail({ ...app, band, score, agentSignals: [{ name: "Codex", score, band, commits: 5 }] });
+      expect(m.subject).not.toMatch(/strong|moderate|weak|none/);
+      expect(m.text).not.toMatch(/\b(strong|moderate|weak|none)\b/);
+      expect(m.text).toContain(`${score}/100`); // the number stays
+    }
   });
 
   it("no agent signals → no agent section", () => {
